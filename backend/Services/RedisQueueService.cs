@@ -4,14 +4,13 @@ using StackExchange.Redis;
 namespace Analytics.API.Services;
 
 /// <summary>
-/// Redis Streams kullanarak fail-safe kuyruk servisi.
+/// Redis kullanarak fail-safe kuyruk servisi.
 /// Bağlantı koptuğunda API çökmez, sadece loglar.
 /// </summary>
 public class RedisQueueService : IQueueService
 {
     private readonly ILogger<RedisQueueService> _logger;
     private readonly IConnectionMultiplexer? _redis;
-    private readonly bool _isConnected;
 
     public RedisQueueService(ILogger<RedisQueueService> logger, IConfiguration configuration)
     {
@@ -27,21 +26,13 @@ public class RedisQueueService : IQueueService
             options.SyncTimeout = 3000;
 
             _redis = ConnectionMultiplexer.Connect(options);
-            _isConnected = _redis.IsConnected;
-
-            if (_isConnected)
-            {
-                _logger.LogInformation("✅ Redis bağlantısı başarılı: {ConnectionString}", connectionString);
-            }
-            else
-            {
-                _logger.LogWarning("⚠️ Redis bağlantısı kurulamadı, Mock modda çalışılacak");
-            }
+            
+            _logger.LogInformation("🔌 Redis bağlantısı başlatılıyor: {ConnectionString}", connectionString);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Redis bağlantı hatası, Mock modda devam ediliyor");
-            _isConnected = false;
+            _redis = null;
         }
     }
 
@@ -49,23 +40,18 @@ public class RedisQueueService : IQueueService
     {
         var jsonData = JsonSerializer.Serialize(data);
 
-        if (_isConnected && _redis != null)
+        // Dinamik bağlantı kontrolü - her istekte kontrol et
+        if (_redis != null && _redis.IsConnected)
         {
             try
             {
                 var db = _redis.GetDatabase();
                 
-                // Redis Streams: Gerçek zamanlı event işleme için ideal
-                await db.StreamAddAsync(
-                    streamName,
-                    new NameValueEntry[]
-                    {
-                        new("payload", jsonData),
-                        new("timestamp", DateTime.UtcNow.ToString("O"))
-                    }
-                );
+                // Redis List: Basit ve uyumlu kuyruk yapısı
+                // RPUSH ile sağa ekle, LPOP ile soldan al (FIFO)
+                await db.ListRightPushAsync(streamName, jsonData);
 
-                _logger.LogDebug("[REDIS] Stream: {StreamName} | Veri eklendi", streamName);
+                _logger.LogInformation("✅ [REDIS] Queue: {StreamName} | Veri eklendi", streamName);
             }
             catch (RedisConnectionException ex)
             {
@@ -80,8 +66,8 @@ public class RedisQueueService : IQueueService
         else
         {
             // Mock mod: Redis yoksa sadece logla
-            _logger.LogInformation("[MOCK-QUEUE] Stream: {StreamName} | Data: {Data}", 
-                streamName, jsonData.Length > 100 ? jsonData[..100] + "..." : jsonData);
+            _logger.LogWarning("⚠️ [MOCK-QUEUE] Redis bağlı değil | Stream: {StreamName} | Size: {Size} bytes", 
+                streamName, jsonData.Length);
         }
     }
 }

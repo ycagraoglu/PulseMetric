@@ -1,4 +1,7 @@
+using Analytics.API.Data;
 using Analytics.API.Services;
+using Analytics.API.Workers;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,8 +15,15 @@ builder.Services.AddControllers();
 // OpenAPI/Swagger (Development için)
 builder.Services.AddEndpointsApiExplorer();
 
+// PostgreSQL DbContext
+builder.Services.AddDbContext<AnalyticsDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSQL")));
+
 // Queue Servisi (Redis veya Mock)
 builder.Services.AddSingleton<IQueueService, RedisQueueService>();
+
+// Background Worker - Redis'ten DB'ye veri aktarımı
+builder.Services.AddHostedService<EventProcessorWorker>();
 
 // =============================================
 // CORS POLİTİKASI (KRİTİK - SaaS için dinamik)
@@ -64,16 +74,17 @@ app.MapControllers();
 // Kök endpoint (Health check / Info)
 app.MapGet("/", () => new
 {
-    name = "AntiGravity Collector API",
+    name = "PulseMetric Collector API",
     version = "1.0.0",
     status = "running",
-    timestamp = DateTime.UtcNow
+    timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
 });
 
 // =============================================
 // UYGULAMA BAŞLATMA
 // =============================================
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
-logger.LogInformation("🚀 AntiGravity Collector API başlatılıyor...");
+logger.LogInformation("🚀 PulseMetric Collector API başlatılıyor...");
 
 app.Run();
+

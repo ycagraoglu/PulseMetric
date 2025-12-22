@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: pulsemetric-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pulsemetric
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pulsemetric_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  # NOT: Redis için mevcut 'offertus-redis' container kullanılıyor (port 6379)
+  # Eğer ayrı Redis isterseniz, portu değiştirin (örn: 6380:6379)
+
+volumes:
+  pulsemetric_postgres_data:
