@@ -22,6 +22,9 @@ builder.Services.AddDbContext<AnalyticsDbContext>(options =>
 // Queue Servisi (Redis veya Mock)
 builder.Services.AddSingleton<IQueueService, RedisQueueService>();
 
+// Stats Servisi
+builder.Services.AddScoped<StatsService>();
+
 // Background Worker - Redis'ten DB'ye veri aktarımı
 builder.Services.AddHostedService<EventProcessorWorker>();
 

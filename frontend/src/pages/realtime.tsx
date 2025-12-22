@@ -1,8 +1,48 @@
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Activity, Globe, Monitor, Smartphone, Tablet } from "lucide-react"
+import { api, type RealtimeStats, type DeviceStats } from "@/lib/api"
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))']
 
 export function RealtimePage() {
+    const [stats, setStats] = useState<RealtimeStats | null>(null)
+    const [devices, setDevices] = useState<DeviceStats[]>([])
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        async function loadData() {
+            try {
+                const [realtimeData, deviceData] = await Promise.all([
+                    api.stats.getRealtime(),
+                    api.stats.getDevices(),
+                ])
+                setStats(realtimeData)
+                setDevices(deviceData)
+            } catch (error) {
+                console.error('Realtime data load error:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+        loadData()
+
+        // Auto-refresh every 30 seconds
+        const interval = setInterval(loadData, 30000)
+        return () => clearInterval(interval)
+    }, [])
+
+    const deviceIcon = (device: string) => {
+        switch (device.toLowerCase()) {
+            case 'mobile': return Smartphone
+            case 'tablet': return Tablet
+            default: return Monitor
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div>
@@ -22,34 +62,46 @@ export function RealtimePage() {
                         <Activity className="h-4 w-4 text-success" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-5xl font-bold text-success">42</div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                            Users in the last 5 minutes
-                        </p>
+                        {loading ? (
+                            <Skeleton className="h-12 w-20" />
+                        ) : (
+                            <>
+                                <div className="text-5xl font-bold text-success">{stats?.activeUsers ?? 0}</div>
+                                <p className="text-sm text-muted-foreground mt-2">
+                                    Users in the last 5 minutes
+                                </p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Page Views (1h)
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">1,234</div>
-                        <Badge variant="success" className="mt-2">+15% vs prev hour</Badge>
+                        {loading ? (
+                            <Skeleton className="h-10 w-16" />
+                        ) : (
+                            <div className="text-3xl font-bold">{stats?.pageViewsLastHour?.toLocaleString() ?? 0}</div>
+                        )}
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
                             Events (1h)
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl font-bold">856</div>
-                        <Badge variant="secondary" className="mt-2">+8% vs prev hour</Badge>
+                        {loading ? (
+                            <Skeleton className="h-10 w-16" />
+                        ) : (
+                            <div className="text-3xl font-bold">{stats?.eventsLastHour?.toLocaleString() ?? 0}</div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -61,20 +113,24 @@ export function RealtimePage() {
                         <CardTitle>Active Pages</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-3">
-                            {[
-                                { page: "/", users: 15 },
-                                { page: "/products", users: 12 },
-                                { page: "/checkout", users: 8 },
-                                { page: "/about", users: 4 },
-                                { page: "/blog/new-post", users: 3 },
-                            ].map((item) => (
-                                <div key={item.page} className="flex items-center justify-between">
-                                    <span className="font-medium">{item.page}</span>
-                                    <Badge variant="outline">{item.users} users</Badge>
-                                </div>
-                            ))}
-                        </div>
+                        {loading ? (
+                            <div className="space-y-3">
+                                {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
+                            </div>
+                        ) : stats?.activePages && stats.activePages.length > 0 ? (
+                            <div className="space-y-3">
+                                {stats.activePages.map((item) => (
+                                    <div key={item.path} className="flex items-center justify-between">
+                                        <span className="font-medium truncate">{item.path}</span>
+                                        <Badge variant="outline">{item.users} users</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="h-32 flex items-center justify-center text-muted-foreground">
+                                No active pages
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -83,46 +139,52 @@ export function RealtimePage() {
                         <CardTitle>Devices</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
+                        {loading ? (
+                            <Skeleton className="h-48 w-full" />
+                        ) : devices.length > 0 ? (
                             <div className="flex items-center gap-4">
-                                <Monitor className="h-5 w-5 text-muted-foreground" />
-                                <div className="flex-1">
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span>Desktop</span>
-                                        <span className="text-muted-foreground">62%</span>
-                                    </div>
-                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-chart-1 rounded-full" style={{ width: "62%" }} />
-                                    </div>
+                                <div className="w-32 h-32">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={devices}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={25}
+                                                outerRadius={50}
+                                                dataKey="percentage"
+                                                nameKey="device"
+                                            >
+                                                {devices.map((_, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="flex-1 space-y-3">
+                                    {devices.map((d, i) => {
+                                        const Icon = deviceIcon(d.device)
+                                        return (
+                                            <div key={d.device} className="flex items-center gap-3">
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                                                />
+                                                <Icon className="h-4 w-4 text-muted-foreground" />
+                                                <span className="flex-1">{d.device}</span>
+                                                <span className="text-muted-foreground">{d.percentage}%</span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </div>
-
-                            <div className="flex items-center gap-4">
-                                <Smartphone className="h-5 w-5 text-muted-foreground" />
-                                <div className="flex-1">
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span>Mobile</span>
-                                        <span className="text-muted-foreground">32%</span>
-                                    </div>
-                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-chart-2 rounded-full" style={{ width: "32%" }} />
-                                    </div>
-                                </div>
+                        ) : (
+                            <div className="h-32 flex items-center justify-center text-muted-foreground">
+                                No device data
                             </div>
-
-                            <div className="flex items-center gap-4">
-                                <Tablet className="h-5 w-5 text-muted-foreground" />
-                                <div className="flex-1">
-                                    <div className="flex justify-between text-sm mb-1">
-                                        <span>Tablet</span>
-                                        <span className="text-muted-foreground">6%</span>
-                                    </div>
-                                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                        <div className="h-full bg-chart-3 rounded-full" style={{ width: "6%" }} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -136,7 +198,7 @@ export function RealtimePage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="h-64 flex items-center justify-center text-muted-foreground">
-                    World map visualization will be added here
+                    World map visualization coming soon
                 </CardContent>
             </Card>
         </div>
