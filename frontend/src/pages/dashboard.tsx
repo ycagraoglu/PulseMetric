@@ -1,176 +1,189 @@
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Users, Activity, MousePointerClick, Clock } from "lucide-react"
-import { api, type StatsOverview, type TopPage } from "@/lib/api"
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
+import { Link } from 'react-router-dom';
+import {
+    Activity03Icon,
+    AddSquareIcon,
+    ArrowRight01Icon,
+    ArtboardIcon,
+    ChartLineData03Icon,
+    CustomerSupportIcon,
+    DatabaseIcon,
+    File02Icon,
+    GithubIcon,
+    UserGroupIcon,
+    UserSquareIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
-export function DashboardPage() {
-    const [overview, setOverview] = useState<StatsOverview | null>(null)
-    const [topPages, setTopPages] = useState<TopPage[]>([])
-    const [chartData, setChartData] = useState<{ date: string; views: number }[]>([])
-    const [loading, setLoading] = useState(true)
+// Mock apps data
+const apps = [
+    { id: '1', name: 'Mobile App', role: 'owner' },
+    { id: '2', name: 'Web Dashboard', role: 'member' },
+    { id: '3', name: 'API Service', role: 'owner' },
+];
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const [overviewData, pagesData, chartRaw] = await Promise.all([
-                    api.stats.getOverview(),
-                    api.stats.getTopPages(),
-                    api.stats.getPageViewChart(),
-                ])
-                setOverview(overviewData)
-                setTopPages(pagesData)
-
-                // Chart data formatting
-                setChartData(chartRaw.map(p => ({
-                    date: new Date(p.timestamp).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' }),
-                    views: p.value
-                })))
-            } catch (error) {
-                console.error('Dashboard data load error:', error)
-            } finally {
-                setLoading(false)
-            }
-        }
-        loadData()
-    }, [])
-
-    const formatDuration = (seconds: number) => {
-        const mins = Math.floor(seconds / 60)
-        const secs = seconds % 60
-        return `${mins}m ${secs}s`
-    }
-
-    const stats = overview ? [
-        { title: "Total Users", value: overview.totalUsers.toLocaleString(), icon: Users },
-        { title: "Active Now", value: overview.activeNow.toString(), icon: Activity },
-        { title: "Page Views", value: overview.totalPageViews.toLocaleString(), icon: MousePointerClick },
-        { title: "Avg. Session", value: formatDuration(overview.avgSessionSeconds), icon: Clock },
-    ] : []
-
+function Dashboard() {
     return (
-        <div className="space-y-6">
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-                <p className="text-muted-foreground">
-                    Welcome back! Here's an overview of your analytics.
+        <div className="flex flex-1 flex-col gap-8">
+            {/* Header */}
+            <div className="text-center">
+                <h1 className="font-bold font-sans text-4xl">Welcome to Phase</h1>
+                <p className="mt-3 text-lg text-muted-foreground">
+                    Select an application to view analytics and insights
                 </p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {loading ? (
-                    Array(4).fill(0).map((_, i) => (
-                        <Card key={i}>
-                            <CardHeader className="pb-2">
-                                <Skeleton className="h-4 w-24" />
-                            </CardHeader>
-                            <CardContent>
-                                <Skeleton className="h-8 w-16" />
+            {/* App Cards */}
+            <div className="flex flex-wrap justify-center gap-4">
+                {apps.map((app) => (
+                    <Link to={`/users?app=${app.id}`} key={app.id}>
+                        <Card
+                            className={cn(
+                                'w-full cursor-pointer py-0 transition-all hover:scale-[1.02] hover:shadow-lg sm:w-80'
+                            )}
+                        >
+                            <CardContent className="p-6">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex size-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                                        <HugeiconsIcon className="size-6" icon={ArtboardIcon} />
+                                    </div>
+                                    <div
+                                        className={cn(
+                                            'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs',
+                                            app.role === 'owner'
+                                                ? 'bg-primary/10 text-primary'
+                                                : 'bg-muted text-muted-foreground'
+                                        )}
+                                    >
+                                        <HugeiconsIcon
+                                            className="size-3"
+                                            icon={app.role === 'owner' ? UserSquareIcon : UserGroupIcon}
+                                        />
+                                        <span className="font-medium capitalize">{app.role}</span>
+                                    </div>
+                                </div>
+                                <h3 className="mt-4 font-semibold text-lg">{app.name}</h3>
+                                <div className="mt-4 flex items-center gap-4 text-muted-foreground text-xs">
+                                    <div className="flex items-center gap-1">
+                                        <HugeiconsIcon className="size-3.5" icon={ChartLineData03Icon} />
+                                        <span>Analytics</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <HugeiconsIcon className="size-3.5" icon={DatabaseIcon} />
+                                        <span>Events</span>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
-                    ))
-                ) : (
-                    stats.map((stat) => (
-                        <Card key={stat.title}>
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-sm font-medium text-muted-foreground">
-                                    {stat.title}
-                                </CardTitle>
-                                <stat.icon className="h-4 w-4 text-muted-foreground" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{stat.value}</div>
-                            </CardContent>
-                        </Card>
-                    ))
-                )}
+                    </Link>
+                ))}
             </div>
 
-            {/* Charts Section */}
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Page Views Over Time</CardTitle>
-                    </CardHeader>
-                    <CardContent className="h-80">
-                        {loading ? (
-                            <Skeleton className="h-full w-full" />
-                        ) : chartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={chartData}>
-                                    <defs>
-                                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: 'hsl(var(--card))',
-                                            border: '1px solid hsl(var(--border))',
-                                            borderRadius: '8px'
-                                        }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="views"
-                                        stroke="hsl(var(--chart-1))"
-                                        fillOpacity={1}
-                                        fill="url(#colorViews)"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="h-full flex items-center justify-center text-muted-foreground">
-                                No data available
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+            {/* Create New App Button */}
+            <div className="flex justify-center">
+                <button
+                    className="flex items-center gap-2 rounded-lg border border-dashed px-6 py-3 font-medium transition-all hover:scale-[1.02] hover:border-primary hover:bg-accent"
+                    type="button"
+                >
+                    <HugeiconsIcon className="size-5" icon={AddSquareIcon} />
+                    Create New App
+                </button>
+            </div>
 
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Top Pages</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {loading ? (
-                            <div className="space-y-4">
-                                {Array(5).fill(0).map((_, i) => (
-                                    <Skeleton key={i} className="h-8 w-full" />
-                                ))}
-                            </div>
-                        ) : topPages.length > 0 ? (
-                            <div className="space-y-4">
-                                {topPages.map((item) => (
-                                    <div key={item.path} className="flex items-center gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex justify-between text-sm mb-1">
-                                                <span className="font-medium">{item.path}</span>
-                                                <span className="text-muted-foreground">{item.views}</span>
-                                            </div>
-                                            <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-primary rounded-full transition-all"
-                                                    style={{ width: `${item.percentage}%` }}
-                                                />
-                                            </div>
-                                        </div>
+            {/* Quick Links */}
+            <div className="mt-8">
+                <h2 className="mb-3 font-semibold text-muted-foreground text-sm uppercase">
+                    Quick Links
+                </h2>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <a className="block" href="/docs" target="_blank">
+                        <Card className="cursor-pointer py-0 transition-colors hover:bg-accent">
+                            <CardContent className="flex items-center justify-between p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-primary/10 p-3">
+                                        <HugeiconsIcon className="size-5 text-primary" icon={File02Icon} />
                                     </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="h-32 flex items-center justify-center text-muted-foreground">
-                                No pages tracked yet
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                                    <div>
+                                        <h3 className="font-semibold text-muted-foreground text-sm uppercase">
+                                            Documentation
+                                        </h3>
+                                        <p className="text-muted-foreground text-sm">
+                                            Learn how to use Phase
+                                        </p>
+                                    </div>
+                                </div>
+                                <HugeiconsIcon className="size-5 text-muted-foreground" icon={ArrowRight01Icon} />
+                            </CardContent>
+                        </Card>
+                    </a>
+
+                    <a className="block" href="/support" target="_blank">
+                        <Card className="cursor-pointer py-0 transition-colors hover:bg-accent">
+                            <CardContent className="flex items-center justify-between p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-primary/10 p-3">
+                                        <HugeiconsIcon className="size-5 text-primary" icon={CustomerSupportIcon} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-muted-foreground text-sm uppercase">
+                                            Support
+                                        </h3>
+                                        <p className="text-muted-foreground text-sm">
+                                            Get help from our team
+                                        </p>
+                                    </div>
+                                </div>
+                                <HugeiconsIcon className="size-5 text-muted-foreground" icon={ArrowRight01Icon} />
+                            </CardContent>
+                        </Card>
+                    </a>
+
+                    <a className="block" href="https://status.phase.sh" target="_blank" rel="noopener noreferrer">
+                        <Card className="cursor-pointer py-0 transition-colors hover:bg-accent">
+                            <CardContent className="flex items-center justify-between p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-primary/10 p-3">
+                                        <HugeiconsIcon className="size-5 text-primary" icon={Activity03Icon} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-muted-foreground text-sm uppercase">
+                                            Status
+                                        </h3>
+                                        <p className="text-muted-foreground text-sm">
+                                            Check system status
+                                        </p>
+                                    </div>
+                                </div>
+                                <HugeiconsIcon className="size-5 text-muted-foreground" icon={ArrowRight01Icon} />
+                            </CardContent>
+                        </Card>
+                    </a>
+
+                    <a className="block" href="https://github.com/Phase-Analytics/Phase/" target="_blank" rel="noopener noreferrer">
+                        <Card className="cursor-pointer py-0 transition-colors hover:bg-accent">
+                            <CardContent className="flex items-center justify-between p-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="rounded-lg bg-primary/10 p-3">
+                                        <HugeiconsIcon className="size-5 text-primary" icon={GithubIcon} />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-muted-foreground text-sm uppercase">
+                                            GitHub
+                                        </h3>
+                                        <p className="text-muted-foreground text-sm">
+                                            View source code
+                                        </p>
+                                    </div>
+                                </div>
+                                <HugeiconsIcon className="size-5 text-muted-foreground" icon={ArrowRight01Icon} />
+                            </CardContent>
+                        </Card>
+                    </a>
+                </div>
             </div>
         </div>
-    )
+    );
 }
+
+export default Dashboard;
