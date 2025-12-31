@@ -1,47 +1,50 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner';
-import { ThemeProvider } from './providers/ThemeProvider';
-import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
-import Users from './pages/Users';
-import UserDetail from './pages/UserDetail';
-import Sessions from './pages/Sessions';
-import Activity from './pages/Activity';
-import Realtime from './pages/Realtime';
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { SidebarProvider } from "@/contexts/SidebarContext";
+import Auth from "./pages/Auth";
+import Users from "./pages/Users";
+import UserDetails from "./pages/UserDetails";
+import Sessions from "./pages/Sessions";
+import Events from "./pages/Events";
+import Realtime from "./pages/Realtime";
+import Settings from "./pages/Settings";
+import ApiKeys from "./pages/ApiKeys";
+import Team from "./pages/Team";
+import NotFound from "./pages/NotFound";
 
-function App() {
-    return (
-        <ThemeProvider>
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <Toaster position="top-right" richColors />
-                <Routes>
-                    <Route path="/" element={<DashboardLayout />}>
-                        <Route index element={<Dashboard />} />
-                        <Route path="users" element={<Users />} />
-                        <Route path="users/:id" element={<UserDetail />} />
-                        <Route path="sessions" element={<Sessions />} />
-                        <Route path="activity" element={<Activity />} />
-                        <Route path="realtime" element={<Realtime />} />
-                        {/* Application routes */}
-                        <Route path="settings" element={<PlaceholderPage title="Settings" />} />
-                        <Route path="api-keys" element={<PlaceholderPage title="API Keys" />} />
-                        <Route path="team" element={<PlaceholderPage title="Team" />} />
-                    </Route>
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-            </BrowserRouter>
-        </ThemeProvider>
-    );
-}
+const queryClient = new QueryClient();
 
-// Simple placeholder for routes we haven't implemented yet
-function PlaceholderPage({ title }: { title: string }) {
-    return (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4">
-            <h1 className="text-2xl font-bold">{title}</h1>
-            <p className="text-muted-foreground">This page is coming soon.</p>
-        </div>
-    );
-}
+const App = () => (
+  <ThemeProvider defaultTheme="dark">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <SidebarProvider>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/" element={<Users />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/users/:userId" element={<UserDetails />} />
+              <Route path="/sessions" element={<Sessions />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/realtime" element={<Realtime />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/api-keys" element={<ApiKeys />} />
+              <Route path="/team" element={<Team />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </SidebarProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
+);
 
 export default App;
