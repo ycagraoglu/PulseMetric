@@ -1,19 +1,17 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Analytics.API.Data.Entities;
+namespace Analytics.API.Models.Entities;
 
 /// <summary>
 /// Analitik event entity modeli.
 /// Redis'ten okunan veriler bu formatta PostgreSQL'e yazılır.
 /// </summary>
 [Table("analytics_events")]
-public class AnalyticsEvent
+public class AnalyticsEvent : BaseEntity
 {
-    [Key]
-    [Column("id")]
-    public Guid Id { get; set; } = Guid.NewGuid();
-
+    #region Required Properties
+    
     /// <summary>
     /// Tenant (müşteri) kimliği
     /// </summary>
@@ -21,13 +19,6 @@ public class AnalyticsEvent
     [Required]
     [MaxLength(100)]
     public string TenantId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Ziyaretçi hash'i (cookie-less tracking)
-    /// </summary>
-    [Column("visitor_id")]
-    [MaxLength(50)]
-    public string? VisitorId { get; set; }
 
     /// <summary>
     /// Event adı (page_view, scroll_depth, click, vb.)
@@ -45,6 +36,33 @@ public class AnalyticsEvent
     public string UrlPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// Event zamanı (Unix epoch milliseconds)
+    /// </summary>
+    [Column("timestamp")]
+    public long Timestamp { get; set; }
+
+    #endregion
+
+    #region Visitor Information
+    
+    /// <summary>
+    /// Ziyaretçi hash'i (cookie-less tracking)
+    /// </summary>
+    [Column("visitor_id")]
+    [MaxLength(50)]
+    public string? VisitorId { get; set; }
+
+    /// <summary>
+    /// Session süresi (saniye)
+    /// </summary>
+    [Column("session_duration")]
+    public int? SessionDuration { get; set; }
+
+    #endregion
+
+    #region Page Information
+    
+    /// <summary>
     /// Sayfa başlığı
     /// </summary>
     [Column("page_title")]
@@ -58,6 +76,10 @@ public class AnalyticsEvent
     [MaxLength(2000)]
     public string? Referrer { get; set; }
 
+    #endregion
+
+    #region Device Information
+    
     /// <summary>
     /// Cihaz tipi (Desktop, Mobile, Tablet)
     /// </summary>
@@ -80,13 +102,6 @@ public class AnalyticsEvent
     public string? OS { get; set; }
 
     /// <summary>
-    /// Ülke (GeoIP ile doldurulacak)
-    /// </summary>
-    [Column("country")]
-    [MaxLength(2)]
-    public string? Country { get; set; }
-
-    /// <summary>
     /// Ekran genişliği
     /// </summary>
     [Column("screen_width")]
@@ -105,27 +120,26 @@ public class AnalyticsEvent
     [MaxLength(10)]
     public string? Language { get; set; }
 
-    /// <summary>
-    /// Session süresi (saniye)
-    /// </summary>
-    [Column("session_duration")]
-    public int? SessionDuration { get; set; }
+    #endregion
 
+    #region Location Information
+    
     /// <summary>
-    /// Event zamanı (Unix epoch milliseconds)
+    /// Ülke kodu (GeoIP ile doldurulacak)
     /// </summary>
-    [Column("timestamp")]
-    public long Timestamp { get; set; }
+    [Column("country")]
+    [MaxLength(2)]
+    public string? Country { get; set; }
 
+    #endregion
+
+    #region Extended Data
+    
     /// <summary>
     /// Ek veriler (JSON formatında)
     /// </summary>
     [Column("data", TypeName = "jsonb")]
     public string? Data { get; set; }
 
-    /// <summary>
-    /// Kayıt oluşturulma zamanı (Unix epoch ms)
-    /// </summary>
-    [Column("created_at")]
-    public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    #endregion
 }

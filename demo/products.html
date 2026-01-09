@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseMetric Demo - Ürünler</title>
+
+    <!-- PulseMetric Script -->
+    <script src="../tracker/pulse.js" data-client-id="demo_tenant_12345" data-debug async>
+    </script>
+
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #262626;
+            --text: #fafafa;
+            --text-muted: #a1a1aa;
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --success: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text);
+        }
+
+        .page-header {
+            padding: 60px 0;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .products {
+            padding: 60px 0;
+        }
+
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .product-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+
+        .product-image {
+            height: 200px;
+            background: linear-gradient(135deg, var(--primary), #ec4899);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+        }
+
+        .product-info {
+            padding: 24px;
+        }
+
+        .product-info h3 {
+            font-size: 1.25rem;
+            margin-bottom: 8px;
+        }
+
+        .product-info p {
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .product-price {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .price {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: none;
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--success);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 8px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">🎯 PulseMetric Demo</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Ana Sayfa</a></li>
+                <li><a href="products.html" class="active">Ürünler</a></li>
+                <li><a href="contact.html">İletişim</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="page-header">
+        <div class="container">
+            <h1>🛒 Ürünlerimiz</h1>
+            <p>Her ürün tıklaması "add_to_cart" eventi olarak takip edilir.</p>
+        </div>
+    </section>
+
+    <section class="products">
+        <div class="container">
+            <div class="product-grid">
+                <!-- Product 1 -->
+                <div class="product-card">
+                    <div class="product-image">📊</div>
+                    <div class="product-info">
+                        <h3>Analytics Pro</h3>
+                        <p>Gelişmiş analitik özellikleri ile verilerinizi derinlemesine analiz edin.</p>
+                        <div class="product-price">
+                            <span class="price">₺99/ay</span>
+                            <button class="btn add-to-cart" data-product="analytics-pro" data-price="99">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product 2 -->
+                <div class="product-card">
+                    <div class="product-image">⚡</div>
+                    <div class="product-info">
+                        <h3>Performance Pack</h3>
+                        <p>Web Vitals ve performans metrikleri ile sitenizi optimize edin.</p>
+                        <div class="product-price">
+                            <span class="price">₺149/ay</span>
+                            <button class="btn add-to-cart" data-product="performance-pack" data-price="149">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product 3 -->
+                <div class="product-card">
+                    <div class="product-image">🔒</div>
+                    <div class="product-info">
+                        <h3>Privacy Shield</h3>
+                        <p>GDPR uyumlu, cookie-less takip ile gizliliği koruyun.</p>
+                        <div class="product-price">
+                            <span class="price">₺199/ay</span>
+                            <button class="btn add-to-cart" data-product="privacy-shield" data-price="199">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product 4 -->
+                <div class="product-card">
+                    <div class="product-image">🎯</div>
+                    <div class="product-info">
+                        <h3>Enterprise Suite</h3>
+                        <p>Tüm özellikleri içeren kurumsal çözüm paketi.</p>
+                        <div class="product-price">
+                            <span class="price">₺499/ay</span>
+                            <button class="btn add-to-cart" data-product="enterprise-suite" data-price="499">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product 5 -->
+                <div class="product-card">
+                    <div class="product-image">📱</div>
+                    <div class="product-info">
+                        <h3>Mobile SDK</h3>
+                        <p>iOS ve Android uygulamalarınız için native SDK.</p>
+                        <div class="product-price">
+                            <span class="price">₺79/ay</span>
+                            <button class="btn add-to-cart" data-product="mobile-sdk" data-price="79">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product 6 -->
+                <div class="product-card">
+                    <div class="product-image">🌍</div>
+                    <div class="product-info">
+                        <h3>Realtime Maps</h3>
+                        <p>Ziyaretçilerinizi canlı harita üzerinde görün.</p>
+                        <div class="product-price">
+                            <span class="price">₺129/ay</span>
+                            <button class="btn add-to-cart" data-product="realtime-maps" data-price="129">
+                                🛒 Sepete Ekle
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">✅ Ürün sepete eklendi!</div>
+
+    <footer>
+        <div class="container">
+            <p>PulseMetric Demo Site | Tüm tıklamalar takip edilmektedir</p>
+        </div>
+    </footer>
+
+    <script>
+        // Add to Cart tracking
+        document.querySelectorAll('.add-to-cart').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const product = e.target.dataset.product;
+                const price = e.target.dataset.price;
+
+                // Track event
+                if (window.PulseMetric) {
+                    window.PulseMetric.track('add_to_cart', {
+                        product_id: product,
+                        price: parseInt(price),
+                        currency: 'TRY'
+                    });
+                    console.log('[Demo] add_to_cart:', product);
+                }
+
+                // Show toast
+                const toast = document.getElementById('toast');
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 3000);
+            });
+        });
+    </script>
+</body>
+
+</html>

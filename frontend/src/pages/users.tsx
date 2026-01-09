@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { PlatformDistribution } from "@/components/dashboard/PlatformDistribution";
@@ -6,113 +7,342 @@ import { GeoDistribution } from "@/components/dashboard/GeoDistribution";
 import { UserChart } from "@/components/dashboard/UserChart";
 import { UsersList } from "@/components/users/UsersList";
 import { DateRangeFilter } from "@/components/filters/DateRangeFilter";
-import { subDays } from "date-fns";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  StatCardSkeleton,
+  ChartSkeleton,
+  UsersTableSkeleton,
+  PlatformDistributionSkeleton,
+  GeoDistributionSkeleton,
+} from "@/components/ui/skeletons";
+import { subDays, format } from "date-fns";
+import {
+  useUsers,
+  useUsersCount,
+  usePlatformDistribution,
+  useGeoDistribution,
+  useUsersChart,
+  userKeys,
+} from "@/hooks/useUsers";
+import { formatUserName, getDefaultPlatforms, getDefaultGeo } from "@/services/users";
 
-const usersData = [
-  { id: "01KCR8XTGQ5W7HR0MAV22YXDHC", name: "Antique Alex", platform: "iOS", country: "Türkiye", countryCode: "TR", firstSeen: "18/12/2025 11:23 AM", firstSeenDate: new Date("2025-12-18T11:23:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TR", name: "Emotional Tyrese", platform: "iOS", country: "Türkiye", countryCode: "TR", firstSeen: "18/12/2025 02:31 AM", firstSeenDate: new Date("2025-12-18T02:31:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TS", name: "Creative Luna", platform: "Android", country: "Germany", countryCode: "DE", firstSeen: "19/12/2025 10:15 AM", firstSeenDate: new Date("2025-12-19T10:15:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TT", name: "Digital Sarah", platform: "iOS", country: "United States", countryCode: "US", firstSeen: "20/12/2025 03:45 PM", firstSeenDate: new Date("2025-12-20T15:45:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TU", name: "Pixel Hunter", platform: "Web", country: "Germany", countryCode: "DE", firstSeen: "21/12/2025 08:30 AM", firstSeenDate: new Date("2025-12-21T08:30:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TV", name: "Neon Phoenix", platform: "iOS", country: "Japan", countryCode: "JP", firstSeen: "21/12/2025 02:15 PM", firstSeenDate: new Date("2025-12-21T14:15:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TW", name: "Shadow Wolf", platform: "Android", country: "Brazil", countryCode: "BR", firstSeen: "22/12/2025 09:00 AM", firstSeenDate: new Date("2025-12-22T09:00:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TX", name: "Crystal Rain", platform: "iOS", country: "France", countryCode: "FR", firstSeen: "22/12/2025 04:30 PM", firstSeenDate: new Date("2025-12-22T16:30:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TY", name: "Mystic Flame", platform: "Web", country: "United Kingdom", countryCode: "GB", firstSeen: "23/12/2025 11:45 AM", firstSeenDate: new Date("2025-12-23T11:45:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5TZ", name: "Thunder Bolt", platform: "Android", country: "India", countryCode: "IN", firstSeen: "23/12/2025 06:20 PM", firstSeenDate: new Date("2025-12-23T18:20:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5UA", name: "Silver Storm", platform: "iOS", country: "Australia", countryCode: "AU", firstSeen: "24/12/2025 07:10 AM", firstSeenDate: new Date("2025-12-24T07:10:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5UB", name: "Golden Star", platform: "iOS", country: "Canada", countryCode: "CA", firstSeen: "24/12/2025 12:00 PM", firstSeenDate: new Date("2025-12-24T12:00:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5UC", name: "Azure Wave", platform: "Android", country: "Netherlands", countryCode: "NL", firstSeen: "24/12/2025 03:25 PM", firstSeenDate: new Date("2025-12-24T15:25:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5UD", name: "Ruby Spark", platform: "Web", country: "Spain", countryCode: "ES", firstSeen: "25/12/2025 08:00 AM", firstSeenDate: new Date("2025-12-25T08:00:00") },
-  { id: "01KCQAE9RP013RTJZE10SQX5UE", name: "Emerald Dream", platform: "iOS", country: "Italy", countryCode: "IT", firstSeen: "25/12/2025 10:30 AM", firstSeenDate: new Date("2025-12-25T10:30:00") },
-];
+// ============================================
+// Types
+// ============================================
 
-const chartData = [
-  { date: "18/12/2025", value: 2 },
-  { date: "19/12/2025", value: 3 },
-  { date: "20/12/2025", value: 4 },
-  { date: "21/12/2025", value: 6 },
-  { date: "22/12/2025", value: 8 },
-  { date: "23/12/2025", value: 10 },
-  { date: "24/12/2025", value: 13 },
-  { date: "25/12/2025", value: 15 },
-];
+interface DateRange {
+  from: Date;
+  to: Date;
+}
 
-const dailyActiveData = [
-  { date: "18/12/2025", value: 2 },
-  { date: "19/12/2025", value: 1 },
-  { date: "20/12/2025", value: 1 },
-  { date: "21/12/2025", value: 2 },
-  { date: "22/12/2025", value: 2 },
-  { date: "23/12/2025", value: 2 },
-  { date: "24/12/2025", value: 3 },
-  { date: "25/12/2025", value: 2 },
-];
+interface UserDisplay {
+  id: string;
+  name: string;
+  platform: string;
+  country: string;
+  countryCode: string;
+  firstSeen: string;
+  firstSeenDate: Date;
+}
+
+// ============================================
+// Constants
+// ============================================
+
+const PAGE_TITLE = "Users";
+const PAGE_DESCRIPTION = "Track and analyze users in your application";
+const DEFAULT_DAYS = 7;
+
+const DEFAULT_DATE_RANGE: DateRange = {
+  from: subDays(new Date(), DEFAULT_DAYS),
+  to: new Date(),
+};
+
+// ============================================
+// Sub-Components
+// ============================================
+
+interface KpiCardsProps {
+  isLoading: boolean;
+  isError: boolean;
+  totalUsers: number;
+  dailyActiveUsers: number;
+  onlineUsers: number;
+  changePercent: number;
+}
+
+const KpiCards = ({
+  isLoading,
+  isError,
+  totalUsers,
+  dailyActiveUsers,
+  onlineUsers,
+  changePercent,
+}: KpiCardsProps) => {
+  if (isLoading) {
+    return (
+      <>
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+        <StatCardSkeleton />
+      </>
+    );
+  }
+
+  if (isError) return null;
+
+  return (
+    <>
+      <StatCard
+        label="Total Users"
+        value={totalUsers}
+        change={
+          changePercent !== 0
+            ? {
+              value: `${Math.abs(changePercent)}%`,
+              isPositive: changePercent > 0,
+              suffix: "from yesterday",
+            }
+            : undefined
+        }
+      />
+      <StatCard label="Daily Active Users" value={dailyActiveUsers} />
+      <StatCard
+        label="Online Users"
+        value={onlineUsers}
+        indicator={{ type: "online", label: "Users currently online" }}
+      />
+    </>
+  );
+};
+
+interface DistributionSectionProps {
+  platformLoading: boolean;
+  platformError: boolean;
+  platforms: ReturnType<typeof getDefaultPlatforms>;
+  geoLoading: boolean;
+  geoError: boolean;
+  geo: ReturnType<typeof getDefaultGeo>;
+}
+
+const DistributionSection = ({
+  platformLoading,
+  platformError,
+  platforms,
+  geoLoading,
+  geoError,
+  geo,
+}: DistributionSectionProps) => (
+  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+    {platformLoading ? (
+      <PlatformDistributionSkeleton />
+    ) : platformError ? (
+      <ErrorState title="Platform verileri yüklenemedi" />
+    ) : (
+      <PlatformDistribution data={platforms} />
+    )}
+
+    {geoLoading ? (
+      <GeoDistributionSkeleton />
+    ) : geoError ? (
+      <ErrorState title="Coğrafi veriler yüklenemedi" />
+    ) : geo.countries.length === 0 ? (
+      <EmptyState
+        icon="chart"
+        title="Coğrafi veri yok"
+        message="Henüz coğrafi dağılım verisi bulunmuyor."
+      />
+    ) : (
+      <GeoDistribution countries={geo.countries} cities={geo.cities} />
+    )}
+  </div>
+);
+
+interface ChartSectionProps {
+  isLoading: boolean;
+  isError: boolean;
+  totalUsersData: { date: string; value: number }[];
+  dailyActiveData: { date: string; value: number }[];
+}
+
+const ChartSection = ({
+  isLoading,
+  isError,
+  totalUsersData,
+  dailyActiveData,
+}: ChartSectionProps) => {
+  if (isLoading) return <ChartSkeleton />;
+  if (isError) return <ErrorState title="Grafik verileri yüklenemedi" />;
+  if (totalUsersData.length === 0) {
+    return (
+      <EmptyState
+        icon="chart"
+        title="Grafik verisi yok"
+        message="Seçilen tarih aralığında gösterilecek veri bulunmuyor."
+      />
+    );
+  }
+  return <UserChart totalUsersData={totalUsersData} dailyActiveData={dailyActiveData} />;
+};
+
+interface UsersListSectionProps {
+  isLoading: boolean;
+  isError: boolean;
+  hasNoData: boolean;
+  users: UserDisplay[];
+  onRetry: () => void;
+}
+
+const UsersListSection = ({
+  isLoading,
+  isError,
+  hasNoData,
+  users,
+  onRetry,
+}: UsersListSectionProps) => {
+  if (isLoading) return <UsersTableSkeleton rows={5} />;
+  if (isError) return <ErrorState title="Kullanıcı listesi yüklenemedi" onRetry={onRetry} />;
+  if (hasNoData) {
+    return (
+      <EmptyState
+        icon="users"
+        title="Henüz kullanıcı yok"
+        message="Seçilen tarih aralığında kaydedilmiş kullanıcı bulunmuyor. Web sitenize pulse.js scriptini ekleyerek veri toplamaya başlayabilirsiniz."
+      />
+    );
+  }
+  return <UsersList users={users} />;
+};
+
+// ============================================
+// Main Component
+// ============================================
 
 const Users = () => {
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
+  const queryClient = useQueryClient();
+  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
+
+  // Queries using existing hooks
+  const usersQuery = useUsers({
+    from: format(dateRange.from, "yyyy-MM-dd"),
+    to: format(dateRange.to, "yyyy-MM-dd"),
   });
+  const countQuery = useUsersCount();
+  const platformQuery = usePlatformDistribution();
+  const geoQuery = useGeoDistribution();
+  const chartQuery = useUsersChart(DEFAULT_DAYS);
 
-  const filteredUsers = useMemo(() => {
-    return usersData.filter((user) => {
-      return user.firstSeenDate >= dateRange.from && user.firstSeenDate <= dateRange.to;
-    });
-  }, [dateRange]);
+  // Transform users data
+  const users: UserDisplay[] = useMemo(() => {
+    if (!usersQuery.data?.length) return [];
+    return usersQuery.data.map((u) => ({
+      id: u.id,
+      name: formatUserName(u),
+      platform: u.platform,
+      country: u.country,
+      countryCode: u.countryCode,
+      firstSeen: u.firstSeen,
+      firstSeenDate: new Date(u.firstSeen),
+    }));
+  }, [usersQuery.data]);
 
-  const platformData = useMemo(() => {
-    const counts = { iOS: 0, Android: 0, Web: 0 };
-    filteredUsers.forEach((u) => {
-      if (u.platform in counts) counts[u.platform as keyof typeof counts]++;
-    });
-    const total = filteredUsers.length || 1;
-    return [
-      { name: "iOS", icon: "ios" as const, count: counts.iOS, percentage: Math.round((counts.iOS / total) * 100) },
-      { name: "Android", icon: "android" as const, count: counts.Android, percentage: Math.round((counts.Android / total) * 100) },
-      { name: "Web", icon: "web" as const, count: counts.Web, percentage: Math.round((counts.Web / total) * 100) },
-    ];
-  }, [filteredUsers]);
+  // Platform data with defaults
+  const platforms = useMemo(
+    () => platformQuery.data ?? getDefaultPlatforms(),
+    [platformQuery.data]
+  );
 
-  const countryData = useMemo(() => {
-    const counts: Record<string, { name: string; code: string; count: number }> = {};
-    filteredUsers.forEach((u) => {
-      if (!counts[u.countryCode]) counts[u.countryCode] = { name: u.country, code: u.countryCode, count: 0 };
-      counts[u.countryCode].count++;
-    });
-    const total = filteredUsers.length || 1;
-    return Object.values(counts)
-      .sort((a, b) => b.count - a.count)
-      .map((c) => ({ name: c.name, countryCode: c.code, count: c.count, percentage: Math.round((c.count / total) * 100) }));
-  }, [filteredUsers]);
+  // Geo data with defaults
+  const geo = useMemo(() => geoQuery.data ?? getDefaultGeo(), [geoQuery.data]);
+
+  // Chart data
+  const totalUsersChartData = chartQuery.data?.totalUsers ?? [];
+  const dailyActiveChartData = chartQuery.data?.dailyActive ?? [];
+
+  // KPI values
+  const totalUsers = countQuery.data?.total ?? 0;
+  const dailyActiveUsers = countQuery.data?.dailyActive ?? 0;
+  const onlineUsers = countQuery.data?.online ?? 0;
+  const changePercent = countQuery.data?.changePercent ?? 0;
+
+  // Derived state
+  const isLoading = usersQuery.isLoading || countQuery.isLoading;
+  const hasError = usersQuery.isError || countQuery.isError;
+  const hasNoData = !isLoading && !hasError && users.length === 0;
+
+  // Handlers
+  const handleRetryAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: userKeys.all });
+  }, [queryClient]);
+
+  const handleDateRangeChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+  }, []);
 
   return (
     <DashboardLayout
-      title="Users"
-      description="Track and analyze users in your application"
+      title={PAGE_TITLE}
+      description={PAGE_DESCRIPTION}
       headerAction={
         <DateRangeFilter
-          showPresets={true}
+          showPresets
           defaultPreset="7d"
-          onChange={(range) => setDateRange(range)}
+          onChange={handleDateRangeChange}
         />
       }
     >
+      {/* Global Error State */}
+      {hasError && (
+        <div className="mb-6">
+          <ErrorState
+            title="Kullanıcı verileri yüklenemedi"
+            message="Backend API'ye bağlanılamadı. Lütfen backend servisinin çalıştığından emin olun."
+            onRetry={handleRetryAll}
+          />
+        </div>
+      )}
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <StatCard label="Total Users" value={filteredUsers.length} change={{ value: "200%", isPositive: true, suffix: "from yesterday" }} />
-        <StatCard label="Daily Active Users" value={Math.min(filteredUsers.length, 5)} change={{ value: "150%", isPositive: true, suffix: "from yesterday" }} />
-        <StatCard label="Online Users" value={Math.floor(Math.random() * 3)} indicator={{ type: "online", label: "Users currently online" }} />
+        <KpiCards
+          isLoading={countQuery.isLoading}
+          isError={countQuery.isError}
+          totalUsers={totalUsers}
+          dailyActiveUsers={dailyActiveUsers}
+          onlineUsers={onlineUsers}
+          changePercent={changePercent}
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <PlatformDistribution data={platformData} />
-        <GeoDistribution countries={countryData} cities={[]} />
-      </div>
+      {/* Platform & Geo Distribution */}
+      <DistributionSection
+        platformLoading={platformQuery.isLoading}
+        platformError={platformQuery.isError}
+        platforms={platforms}
+        geoLoading={geoQuery.isLoading}
+        geoError={geoQuery.isError}
+        geo={geo}
+      />
 
+      {/* Chart */}
       <div className="mb-6">
-        <UserChart totalUsersData={chartData} dailyActiveData={dailyActiveData} />
+        <ChartSection
+          isLoading={chartQuery.isLoading}
+          isError={chartQuery.isError}
+          totalUsersData={totalUsersChartData}
+          dailyActiveData={dailyActiveChartData}
+        />
       </div>
 
-      <UsersList users={filteredUsers} />
+      {/* Users List */}
+      <UsersListSection
+        isLoading={usersQuery.isLoading}
+        isError={usersQuery.isError}
+        hasNoData={hasNoData}
+        users={users}
+        onRetry={() => usersQuery.refetch()}
+      />
     </DashboardLayout>
   );
 };

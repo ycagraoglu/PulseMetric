@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseMetric Demo - Ana Sayfa</title>
+    
+    <!-- PulseMetric Script - Debug Mode Enabled -->
+    <script 
+        src="../tracker/pulse.js" 
+        data-client-id="demo_tenant_12345"
+        data-debug
+        async>
+    </script>
+    
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #262626;
+            --text: #fafafa;
+            --text-muted: #a1a1aa;
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Navigation */
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text);
+        }
+        
+        /* Hero */
+        .hero {
+            padding: 100px 0;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--primary), #ec4899);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+        
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: none;
+        }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        .btn-outline:hover {
+            background: var(--surface);
+            border-color: var(--primary);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        /* Features */
+        .features {
+            padding: 80px 0;
+        }
+        
+        .features h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 60px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        
+        .feature-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            transition: border-color 0.2s;
+        }
+        
+        .feature-card:hover {
+            border-color: var(--primary);
+        }
+        
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 12px;
+        }
+        
+        .feature-card p {
+            color: var(--text-muted);
+        }
+        
+        /* Console */
+        .console-section {
+            padding: 80px 0;
+            background: var(--surface);
+        }
+        
+        .console {
+            background: #000;
+            border-radius: 12px;
+            padding: 24px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.875rem;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+        
+        .console-line {
+            margin-bottom: 8px;
+            color: #22c55e;
+        }
+        
+        .console-line.info {
+            color: #3b82f6;
+        }
+        
+        .console-line.event {
+            color: #f59e0b;
+        }
+        
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+        
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+        
+        /* Test Section */
+        .test-section {
+            padding: 80px 0;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .test-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .test-card h4 {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .test-card button {
+            width: 100%;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <div class="logo">🎯 PulseMetric Demo</div>
+            <ul class="nav-links">
+                <li><a href="index.html" class="active">Ana Sayfa</a></li>
+                <li><a href="products.html">Ürünler</a></li>
+                <li><a href="contact.html">İletişim</a></li>
+                <li><a href="https://github.com" target="_blank">GitHub (Outbound)</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>PulseMetric Demo Site</h1>
+            <p>Bu demo site pulse.js'in tüm özelliklerini test etmek için tasarlanmıştır. Console'u açarak eventleri görebilirsiniz.</p>
+            <div class="btn-group">
+                <button class="btn btn-primary" id="signup-btn">
+                    📝 Kayıt Ol
+                </button>
+                <a href="products.html" class="btn btn-outline">
+                    🛒 Ürünleri Gör
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Test Buttons Section -->
+    <section class="test-section">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 40px;">🧪 Test Butonları</h2>
+            <div class="test-grid">
+                <!-- Custom Event -->
+                <div class="test-card">
+                    <h4>📊 Custom Event</h4>
+                    <p>PulseMetric.track() ile özel event gönder</p>
+                    <button class="btn btn-primary" id="track-btn">
+                        Event Gönder
+                    </button>
+                </div>
+                
+                <!-- Identify -->
+                <div class="test-card">
+                    <h4>👤 Identify User</h4>
+                    <p>PulseMetric.identify() ile kullanıcı tanımla</p>
+                    <button class="btn btn-primary" id="identify-btn">
+                        Kullanıcı Tanımla
+                    </button>
+                </div>
+                
+                <!-- Get IDs -->
+                <div class="test-card">
+                    <h4>🔑 Get IDs</h4>
+                    <p>Visitor ve Session ID'leri al</p>
+                    <button class="btn btn-primary" id="ids-btn">
+                        ID'leri Göster
+                    </button>
+                </div>
+                
+                <!-- Flush -->
+                <div class="test-card">
+                    <h4>📤 Force Flush</h4>
+                    <p>Event kuyruğunu hemen gönder</p>
+                    <button class="btn btn-primary" id="flush-btn">
+                        Flush
+                    </button>
+                </div>
+                
+                <!-- Consent -->
+                <div class="test-card">
+                    <h4>✅ Consent Toggle</h4>
+                    <p>GDPR consent yönetimi</p>
+                    <button class="btn btn-primary" id="consent-btn">
+                        Consent: ON
+                    </button>
+                </div>
+                
+                <!-- Error -->
+                <div class="test-card">
+                    <h4>💥 Trigger Error</h4>
+                    <p>JavaScript hatası oluştur (js_error)</p>
+                    <button class="btn btn-outline" id="error-btn" style="border-color: #ef4444; color: #ef4444;">
+                        Hata Oluştur
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section (Long content for scroll tracking) -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2>📈 Takip Edilen Özellikler</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">👀</div>
+                    <h3>Page View</h3>
+                    <p>Her sayfa yüklemesinde otomatik olarak gönderilir.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📜</div>
+                    <h3>Scroll Depth</h3>
+                    <p>%25, %50, %75, %100 scroll milestone'ları takip edilir.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⏱️</div>
+                    <h3>Time on Page</h3>
+                    <p>Sayfa kapatılırken geçirilen süre gönderilir.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔗</div>
+                    <h3>Outbound Links</h3>
+                    <p>Dış sitelere yapılan tıklamalar takip edilir.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Performance</h3>
+                    <p>Sayfa yükleme metrikleri (TTFB, DOM Ready, Load Time).</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Engagement</h3>
+                    <p>30 saniye sonra "engaged" eventi gönderilir.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🐛</div>
+                    <h3>JS Errors</h3>
+                    <p>JavaScript hataları yakalanır ve raporlanır.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🍪</div>
+                    <h3>Cookie-less</h3>
+                    <p>GDPR uyumlu, cookie kullanmadan visitor hash.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Console Output -->
+    <section class="console-section">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 24px;">🖥️ Event Console</h2>
+            <p style="text-align: center; color: var(--text-muted); margin-bottom: 24px;">
+                Tarayıcı Console'unu açın (F12) veya aşağıdaki log'ları izleyin
+            </p>
+            <div class="console" id="event-console">
+                <div class="console-line info">[PulseMetric Demo] Console initialized...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Spacer for scroll testing -->
+    <div style="height: 500px; display: flex; align-items: center; justify-content: center;">
+        <p style="color: var(--text-muted);">👇 Scroll depth test için aşağı kaydırın 👇</p>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>PulseMetric Demo Site | <a href="https://github.com" target="_blank">GitHub</a></p>
+            <p style="margin-top: 8px; font-size: 0.875rem;">Scroll, tıklama ve diğer eventler otomatik olarak takip edilmektedir.</p>
+        </div>
+    </footer>
+
+    <script>
+        // ============================================
+        // Console Logger
+        // ============================================
+        const consoleEl = document.getElementById('event-console');
+        
+        function logToConsole(message, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `console-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        // Wait for PulseMetric to be ready
+        function waitForPulse(callback) {
+            if (window.PulseMetric) {
+                callback();
+            } else {
+                setTimeout(() => waitForPulse(callback), 100);
+            }
+        }
+
+        waitForPulse(() => {
+            logToConsole('✅ PulseMetric v' + window.PulseMetric.version + ' loaded!', 'info');
+            logToConsole('Visitor ID: ' + window.PulseMetric.getVisitorId(), 'info');
+            logToConsole('Session ID: ' + window.PulseMetric.getSessionId(), 'info');
+        });
+
+        // ============================================
+        // Test Button Handlers
+        // ============================================
+        
+        // Signup Button (Custom Event)
+        document.getElementById('signup-btn').addEventListener('click', () => {
+            if (window.PulseMetric) {
+                window.PulseMetric.track('signup_click', { 
+                    source: 'hero_section',
+                    plan: 'free'
+                });
+                logToConsole('📊 Event: signup_click', 'event');
+            }
+        });
+
+        // Track Button
+        document.getElementById('track-btn').addEventListener('click', () => {
+            if (window.PulseMetric) {
+                window.PulseMetric.track('test_event', { 
+                    button: 'track_btn',
+                    timestamp: Date.now()
+                });
+                logToConsole('📊 Event: test_event sent!', 'event');
+            }
+        });
+
+        // Identify Button
+        document.getElementById('identify-btn').addEventListener('click', () => {
+            if (window.PulseMetric) {
+                const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+                window.PulseMetric.identify(userId, {
+                    email: 'demo@pulsemetric.com',
+                    plan: 'premium',
+                    company: 'Demo Corp'
+                });
+                logToConsole('👤 User identified: ' + userId, 'event');
+            }
+        });
+
+        // Get IDs Button
+        document.getElementById('ids-btn').addEventListener('click', () => {
+            if (window.PulseMetric) {
+                const visitorId = window.PulseMetric.getVisitorId();
+                const sessionId = window.PulseMetric.getSessionId();
+                const duration = window.PulseMetric.getSessionDuration();
+                
+                logToConsole('🔑 Visitor: ' + visitorId, 'info');
+                logToConsole('🔑 Session: ' + sessionId, 'info');
+                logToConsole('⏱️ Duration: ' + duration + 's', 'info');
+                
+                alert(`Visitor ID: ${visitorId}\nSession ID: ${sessionId}\nSession Duration: ${duration}s`);
+            }
+        });
+
+        // Flush Button
+        document.getElementById('flush-btn').addEventListener('click', () => {
+            if (window.PulseMetric) {
+                window.PulseMetric.flush();
+                logToConsole('📤 Queue flushed!', 'event');
+            }
+        });
+
+        // Consent Button
+        let consentState = true;
+        document.getElementById('consent-btn').addEventListener('click', (e) => {
+            if (window.PulseMetric) {
+                consentState = !consentState;
+                window.PulseMetric.consent(consentState);
+                e.target.textContent = 'Consent: ' + (consentState ? 'ON' : 'OFF');
+                logToConsole('✅ Consent: ' + (consentState ? 'granted' : 'denied'), 'event');
+            }
+        });
+
+        // Error Button
+        document.getElementById('error-btn').addEventListener('click', () => {
+            logToConsole('💥 Triggering JS error...', 'event');
+            // This will trigger the error handler
+            setTimeout(() => {
+                throw new Error('Test error from PulseMetric Demo');
+            }, 100);
+        });
+    </script>
+</body>
+</html>

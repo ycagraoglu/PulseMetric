@@ -1,9 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  StatCardSkeleton,
+  ChartSkeleton,
+  UsersTableSkeleton,
+  TopListSkeleton,
+} from "@/components/ui/skeletons";
 import { Calendar, Search, Eye, ChevronLeft, ChevronRight, TrendingUp, MousePointer } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { UserAvatar } from "@/components/users/UserAvatar";
@@ -12,186 +21,475 @@ import { TopEvents } from "@/components/events/TopEvents";
 import { TopScreens } from "@/components/events/TopScreens";
 import { DateRangeFilter } from "@/components/filters/DateRangeFilter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { subDays } from "date-fns";
+import { subDays, format } from "date-fns";
+import {
+  useEvents,
+  useEventsCount,
+  useEventsChart,
+  useEventAggregations,
+  eventKeys,
+} from "@/hooks/useEvents";
+import {
+  getEventType,
+  formatEventUserName,
+  transformToTopEvents,
+  type EventType,
+} from "@/services/events";
 
-const eventsData = [
-  { id: "e1", userName: "Common Jimmie", eventName: "View cart_view", eventType: "view", date: "24/12/2025 11:41 PM", dateObj: new Date("2025-12-24T23:41:00") },
-  { id: "e2", userName: "Common Jimmie", eventName: "add_to_cart", eventType: "action", date: "24/12/2025 11:41 PM", dateObj: new Date("2025-12-24T23:41:00") },
-  { id: "e3", userName: "Common Jimmie", eventName: "View product_view", eventType: "view", date: "24/12/2025 11:41 PM", dateObj: new Date("2025-12-24T23:41:00") },
-  { id: "e4", userName: "Common Jimmie", eventName: "product_search", eventType: "action", date: "24/12/2025 11:41 PM", dateObj: new Date("2025-12-24T23:41:00") },
-  { id: "e5", userName: "Common Jimmie", eventName: "View home_view", eventType: "view", date: "24/12/2025 11:41 PM", dateObj: new Date("2025-12-24T23:41:00") },
-  { id: "e6", userName: "Common Jimmie", eventName: "View app_open", eventType: "view", date: "24/12/2025 11:40 PM", dateObj: new Date("2025-12-24T23:40:00") },
-  { id: "e7", userName: "Common Jimmie", eventName: "support_chat_open", eventType: "action", date: "24/12/2025 11:40 PM", dateObj: new Date("2025-12-24T23:40:00") },
-  { id: "e8", userName: "Common Jimmie", eventName: "settings_update", eventType: "action", date: "24/12/2025 11:40 PM", dateObj: new Date("2025-12-24T23:40:00") },
-  { id: "e9", userName: "Common Jimmie", eventName: "View profile_view", eventType: "view", date: "24/12/2025 11:40 PM", dateObj: new Date("2025-12-24T23:40:00") },
-  { id: "e10", userName: "Common Jimmie", eventName: "purchase_complete", eventType: "action", date: "24/12/2025 11:40 PM", dateObj: new Date("2025-12-24T23:40:00") },
-  { id: "e11", userName: "Creative Alysha", eventName: "View checkout_start", eventType: "view", date: "24/12/2025 11:39 PM", dateObj: new Date("2025-12-24T23:39:00") },
-  { id: "e12", userName: "Creative Alysha", eventName: "payment_info_entered", eventType: "action", date: "24/12/2025 11:38 PM", dateObj: new Date("2025-12-24T23:38:00") },
-  { id: "e13", userName: "Rough Adelle", eventName: "View cart_view", eventType: "view", date: "24/12/2025 10:35 PM", dateObj: new Date("2025-12-24T22:35:00") },
-  { id: "e14", userName: "Rough Adelle", eventName: "add_to_cart", eventType: "action", date: "24/12/2025 10:34 PM", dateObj: new Date("2025-12-24T22:34:00") },
-  { id: "e15", userName: "Speedy Edwina", eventName: "View product_view", eventType: "view", date: "24/12/2025 10:05 PM", dateObj: new Date("2025-12-24T22:05:00") },
-];
+// ============================================
+// Types
+// ============================================
 
-const chartData = [
-  { date: "18/12/2025", events: 150 },
-  { date: "19/12/2025", events: 280 },
-  { date: "20/12/2025", events: 320 },
-  { date: "21/12/2025", events: 250 },
-  { date: "22/12/2025", events: 380 },
-  { date: "23/12/2025", events: 420 },
-  { date: "24/12/2025", events: 410 },
-];
+interface DateRange {
+  from: Date;
+  to: Date;
+}
 
-const topEventsData = [
-  { name: "action_3", count: 262, percentage: 18.9 },
-  { name: "action_2", count: 262, percentage: 18.9 },
-  { name: "action_1", count: 262, percentage: 18.9 },
-  { name: "action_5", count: 171, percentage: 12.3 },
-  { name: "session_end", count: 170, percentage: 12.3 },
-  { name: "product_search", count: 16, percentage: 1.2 },
-  { name: "purchase_complete", count: 15, percentage: 1.1 },
-];
+interface EventDisplay {
+  id: string;
+  userName: string;
+  eventName: string;
+  eventType: EventType;
+  date: string;
+  dateObj: Date;
+}
 
-const topScreensData = [
-  { path: "session_start", count: 262, percentage: 37.2 },
-  { path: "action_4", count: 219, percentage: 31.1 },
-  { path: "session_end", count: 92, percentage: 13.1 },
-  { path: "action_8", count: 37, percentage: 5.3 },
-  { path: "app_open", count: 16, percentage: 2.3 },
-  { path: "profile_view", count: 15, percentage: 2.1 },
-  { path: "checkout_start", count: 15, percentage: 2.1 },
-];
+// ============================================
+// Constants
+// ============================================
+
+const PAGE_TITLE = "Activity";
+const PAGE_DESCRIPTION = "Track and analyze events in your application";
+const DEFAULT_PAGE_SIZE = 10;
+
+const DEFAULT_DATE_RANGE: DateRange = {
+  from: subDays(new Date(), 7),
+  to: new Date(),
+};
+
+// ============================================
+// Sub-Components
+// ============================================
+
+interface StatCardProps {
+  label: string;
+  value: number;
+  subtitle?: string;
+  showTrend?: boolean;
+}
+
+const StatCard = ({ label, value, subtitle, showTrend }: StatCardProps) => (
+  <Card className="bg-card border-border">
+    <CardContent className="p-5">
+      <span className="stat-label">{label}</span>
+      <div className="stat-value text-foreground mt-2">{value.toLocaleString()}</div>
+      {showTrend && value > 0 ? (
+        <div className="flex items-center gap-1 text-sm mt-1">
+          <TrendingUp className="w-3 h-3 text-green-500" />
+          <span className="text-muted-foreground">All time</span>
+        </div>
+      ) : subtitle ? (
+        <span className="text-sm text-muted-foreground">{subtitle}</span>
+      ) : null}
+    </CardContent>
+  </Card>
+);
+
+interface EventRowProps {
+  event: EventDisplay;
+  onClick: () => void;
+}
+
+const EventRow = ({ event, onClick }: EventRowProps) => (
+  <tr
+    className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors cursor-pointer"
+    onClick={onClick}
+  >
+    <td className="p-4">
+      <div className="flex items-center gap-3">
+        <UserAvatar name={event.userName} className="w-8 h-8" />
+        <span className="text-foreground">{event.userName}</span>
+      </div>
+    </td>
+    <td className="p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        {event.eventType === "view" ? (
+          <Eye className="w-4 h-4" />
+        ) : (
+          <MousePointer className="w-4 h-4" />
+        )}
+        <span className="font-mono">{event.eventName}</span>
+      </div>
+    </td>
+    <td className="p-4">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Calendar className="w-4 h-4" />
+        {event.date}
+      </div>
+    </td>
+    <td className="p-4">
+      <Eye className="w-4 h-4 text-muted-foreground" />
+    </td>
+  </tr>
+);
+
+interface PaginationProps {
+  page: number;
+  totalPages: number;
+  perPage: number;
+  totalItems: number;
+  onPrevious: () => void;
+  onNext: () => void;
+  onPerPageChange: (value: number) => void;
+}
+
+const Pagination = ({
+  page,
+  totalPages,
+  perPage,
+  totalItems,
+  onPrevious,
+  onNext,
+  onPerPageChange,
+}: PaginationProps) => (
+  <div className="flex items-center justify-between mt-4">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={onPrevious}
+      disabled={page === 1}
+      className="flex items-center gap-1"
+    >
+      <ChevronLeft className="w-4 h-4" />
+      Previous
+    </Button>
+    <span className="text-sm text-muted-foreground">
+      Page {page} of {totalPages} ({totalItems} total)
+    </span>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Rows:</span>
+      <Select value={perPage.toString()} onValueChange={(v) => onPerPageChange(Number(v))}>
+        <SelectTrigger className="w-16 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="5">5</SelectItem>
+          <SelectItem value="10">10</SelectItem>
+          <SelectItem value="20">20</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onNext}
+        disabled={page === totalPages}
+        className="flex items-center gap-1"
+      >
+        Next
+        <ChevronRight className="w-4 h-4" />
+      </Button>
+    </div>
+  </div>
+);
+
+interface ChartSectionProps {
+  isLoading: boolean;
+  isError: boolean;
+  data: { date: string; events: number }[];
+}
+
+const ChartSection = ({ isLoading, isError, data }: ChartSectionProps) => {
+  if (isLoading) return <ChartSkeleton />;
+  if (isError) return <ErrorState title="Grafik verileri yüklenemedi" />;
+  if (data.length === 0) {
+    return <EmptyState icon="chart" title="Grafik verisi yok" message="Seçilen tarih aralığında event verisi bulunmuyor." />;
+  }
+
+  return (
+    <Card className="bg-card border-border">
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between mb-4">
+          <Tabs defaultValue="daily">
+            <TabsList className="bg-muted h-9">
+              <TabsTrigger value="daily" className="text-xs font-mono uppercase tracking-wider">Daily Events</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <p className="text-sm text-muted-foreground mb-6">Daily event count over selected period</p>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} dy={10} />
+              <YAxis axisLine={false} tickLine={false} hide />
+              <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+              <Area type="monotone" dataKey="events" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// ============================================
+// Main Component
+// ============================================
 
 const Events = () => {
+  const queryClient = useQueryClient();
+
+  // State
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(10);
-  const [selectedEvent, setSelectedEvent] = useState<typeof eventsData[0] | null>(null);
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({ from: subDays(new Date(), 7), to: new Date() });
+  const [perPage, setPerPage] = useState(DEFAULT_PAGE_SIZE);
+  const [selectedEvent, setSelectedEvent] = useState<EventDisplay | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
 
+  // Queries using existing hooks
+  const eventsQuery = useEvents({
+    from: format(dateRange.from, "yyyy-MM-dd"),
+    to: format(dateRange.to, "yyyy-MM-dd"),
+    page,
+    pageSize: perPage,
+  });
+  const countQuery = useEventsCount();
+  const chartQuery = useEventsChart(7);
+  const aggQuery = useEventAggregations();
+
+  // Transform events
+  const events: EventDisplay[] = useMemo(() => {
+    if (!eventsQuery.data?.length) return [];
+    return eventsQuery.data.map((e) => ({
+      id: e.id,
+      userName: formatEventUserName(e.visitorId),
+      eventName: e.eventName,
+      eventType: getEventType(e.eventName),
+      date: e.timestamp,
+      dateObj: new Date(e.timestamp),
+    }));
+  }, [eventsQuery.data]);
+
+  // Filter events
   const filteredEvents = useMemo(() => {
-    return eventsData.filter((event) => {
-      const matchesSearch = event.userName.toLowerCase().includes(search.toLowerCase()) || event.eventName.toLowerCase().includes(search.toLowerCase());
-      const matchesDate = event.dateObj >= dateRange.from && event.dateObj <= dateRange.to;
-      return matchesSearch && matchesDate;
-    });
-  }, [search, dateRange]);
+    if (!search) return events;
+    const searchLower = search.toLowerCase();
+    return events.filter(
+      (e) =>
+        e.userName.toLowerCase().includes(searchLower) ||
+        e.eventName.toLowerCase().includes(searchLower)
+    );
+  }, [events, search]);
 
+  // Pagination
   const totalPages = Math.ceil(filteredEvents.length / perPage) || 1;
   const paginatedEvents = filteredEvents.slice((page - 1) * perPage, page * perPage);
 
+  // Chart data
+  const chartData = useMemo(
+    () => chartQuery.data?.map((d) => ({ date: d.date, events: d.value })) ?? [],
+    [chartQuery.data]
+  );
+
+  // Top events
+  const topEventsData = useMemo(
+    () => (aggQuery.data ? transformToTopEvents(aggQuery.data) : []),
+    [aggQuery.data]
+  );
+
+  // KPIs
+  const totalEvents = countQuery.data?.total ?? 0;
+  const dailyEvents = countQuery.data?.todayCount ?? 0;
+
+  // Derived state
+  const hasError = eventsQuery.isError || countQuery.isError;
+  const hasNoData = !eventsQuery.isLoading && !eventsQuery.isError && events.length === 0;
+
+  // Handlers
+  const handleRetryAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: eventKeys.all });
+  }, [queryClient]);
+
+  const handleDateRangeChange = useCallback((range: DateRange) => {
+    setDateRange(range);
+    setPage(1);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setPage(1);
+  }, []);
+
+  const handlePerPageChange = useCallback((value: number) => {
+    setPerPage(value);
+    setPage(1);
+  }, []);
+
   return (
     <DashboardLayout
-      title="Activity"
-      description="Track and analyze events in your application"
-      headerAction={<DateRangeFilter showPresets={true} defaultPreset="7d" onChange={(range) => { setDateRange(range); setPage(1); }} />}
+      title={PAGE_TITLE}
+      description={PAGE_DESCRIPTION}
+      headerAction={
+        <DateRangeFilter
+          showPresets
+          defaultPreset="7d"
+          onChange={handleDateRangeChange}
+        />
+      }
     >
+      {/* Global Error State */}
+      {hasError && (
+        <div className="mb-6">
+          <ErrorState
+            title="Event verileri yüklenemedi"
+            message="Backend API'ye bağlanılamadı. Lütfen backend servisinin çalıştığından emin olun."
+            onRetry={handleRetryAll}
+          />
+        </div>
+      )}
+
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <Card className="bg-card border-border">
-          <CardContent className="p-5">
-            <span className="stat-label">TOTAL EVENTS</span>
-            <div className="stat-value text-foreground mt-2">2146</div>
-            <div className="flex items-center gap-1 text-sm mt-1"><TrendingUp className="w-3 h-3 text-green-500" /><span className="text-green-500">23.72%</span><span className="text-muted-foreground">from yesterday</span></div>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border-border">
-          <CardContent className="p-5">
-            <span className="stat-label">DAILY EVENTS</span>
-            <div className="stat-value text-foreground mt-2">410</div>
-            <div className="flex items-center gap-1 text-sm mt-1"><TrendingUp className="w-3 h-3 text-green-500" /><span className="text-green-500">15.45%</span><span className="text-muted-foreground">from yesterday</span></div>
-          </CardContent>
-        </Card>
+        {countQuery.isLoading ? (
+          <>
+            <StatCardSkeleton />
+            <StatCardSkeleton />
+          </>
+        ) : countQuery.isError ? null : (
+          <>
+            <StatCard label="TOTAL EVENTS" value={totalEvents} showTrend />
+            <StatCard label="TODAY'S EVENTS" value={dailyEvents} subtitle="Events today" />
+          </>
+        )}
       </div>
 
-      <Card className="bg-card border-border mb-6">
-        <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
-            <Tabs defaultValue="daily"><TabsList className="bg-muted h-9"><TabsTrigger value="daily" className="text-xs font-mono uppercase tracking-wider">Daily Events</TabsTrigger></TabsList></Tabs>
-            <DateRangeFilter showPresets={true} defaultPreset="7d" onChange={(range) => setDateRange(range)} />
-          </div>
-          <p className="text-sm text-muted-foreground mb-6">Daily event count over selected period</p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs><linearGradient id="colorEvents" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} /><stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} /></linearGradient></defs>
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} dx={-10} hide />
-                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} labelStyle={{ color: "hsl(var(--foreground))" }} />
-                <Area type="monotone" dataKey="events" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorEvents)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Chart */}
+      <div className="mb-6">
+        <ChartSection isLoading={chartQuery.isLoading} isError={chartQuery.isError} data={chartData} />
+      </div>
 
+      {/* Top Events & Screens */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <TopEvents events={topEventsData} />
-        <TopScreens screens={topScreensData} />
+        {aggQuery.isLoading ? (
+          <>
+            <TopListSkeleton />
+            <TopListSkeleton />
+          </>
+        ) : aggQuery.isError ? (
+          <>
+            <ErrorState title="Top events yüklenemedi" />
+            <ErrorState title="Top screens yüklenemedi" />
+          </>
+        ) : topEventsData.length === 0 ? (
+          <>
+            <EmptyState icon="activity" title="Event verisi yok" message="Henüz kaydedilmiş event bulunmuyor." />
+            <EmptyState icon="activity" title="Screen verisi yok" message="Henüz kaydedilmiş screen view bulunmuyor." />
+          </>
+        ) : (
+          <>
+            <TopEvents events={topEventsData} />
+            <TopScreens screens={[]} />
+          </>
+        )}
       </div>
 
-      <Card className="bg-card border-border">
-        <CardContent className="p-5">
-          <div className="mb-4"><h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">ALL EVENTS</h3><p className="text-sm text-muted-foreground">Complete list of all events</p></div>
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <Input placeholder="Search events" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="w-64 bg-secondary border-border" />
-              <Button variant="outline" size="sm" className="flex items-center gap-2"><Search className="w-4 h-4" />Search</Button>
+      {/* Events Table */}
+      {eventsQuery.isLoading ? (
+        <UsersTableSkeleton rows={5} />
+      ) : eventsQuery.isError ? (
+        <ErrorState title="Event listesi yüklenemedi" onRetry={() => eventsQuery.refetch()} />
+      ) : hasNoData ? (
+        <EmptyState
+          icon="activity"
+          title="Henüz event yok"
+          message="Seçilen tarih aralığında kaydedilmiş event bulunmuyor. Web sitenize pulse.js scriptini ekleyerek veri toplamaya başlayabilirsiniz."
+        />
+      ) : (
+        <Card className="bg-card border-border">
+          <CardContent className="p-5">
+            <div className="mb-4">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">ALL EVENTS</h3>
+              <p className="text-sm text-muted-foreground">Complete list of all events</p>
             </div>
-            <DateRangeFilter showPresets={false} onChange={(range) => { setDateRange(range); setPage(1); }} />
-          </div>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full">
-              <thead><tr className="border-b border-border bg-secondary/30">
-                <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">USER</th>
-                <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">EVENT</th>
-                <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">DATE</th>
-                <th className="w-10"></th>
-              </tr></thead>
-              <tbody>
-                {paginatedEvents.length === 0 ? (
-                  <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">No events found</td></tr>
-                ) : (
-                  paginatedEvents.map((event) => (
-                    <tr key={event.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors cursor-pointer" onClick={() => setSelectedEvent(event)}>
-                      <td className="p-4"><div className="flex items-center gap-3"><UserAvatar name={event.userName} className="w-8 h-8" /><span className="text-foreground">{event.userName}</span></div></td>
-                      <td className="p-4"><div className="flex items-center gap-2 text-muted-foreground">{event.eventType === "view" ? <Eye className="w-4 h-4" /> : <MousePointer className="w-4 h-4" />}<span className="font-mono">{event.eventName}</span></div></td>
-                      <td className="p-4"><div className="flex items-center gap-2 text-muted-foreground"><Calendar className="w-4 h-4" />{event.date}</div></td>
-                      <td className="p-4"><Eye className="w-4 h-4 text-muted-foreground" /></td>
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Search events"
+                  value={search}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-64 bg-secondary border-border"
+                />
+                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                  <Search className="w-4 h-4" />
+                  Search
+                </Button>
+              </div>
+            </div>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border bg-secondary/30">
+                    <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">USER</th>
+                    <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">EVENT</th>
+                    <th className="text-left text-xs font-mono uppercase tracking-wider text-muted-foreground p-4">DATE</th>
+                    <th className="w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedEvents.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                        No events match your search
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex items-center justify-between mt-4">
-            <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="flex items-center gap-1"><ChevronLeft className="w-4 h-4" />Previous</Button>
-            <span className="text-sm text-muted-foreground">Page {page} of {totalPages} ({filteredEvents.length} total)</span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Rows:</span>
-              <Select value={perPage.toString()} onValueChange={(v) => { setPerPage(Number(v)); setPage(1); }}>
-                <SelectTrigger className="w-16 h-8"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="5">5</SelectItem><SelectItem value="10">10</SelectItem><SelectItem value="20">20</SelectItem></SelectContent>
-              </Select>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="flex items-center gap-1">Next<ChevronRight className="w-4 h-4" /></Button>
+                  ) : (
+                    paginatedEvents.map((event) => (
+                      <EventRow
+                        key={event.id}
+                        event={event}
+                        onClick={() => setSelectedEvent(event)}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              perPage={perPage}
+              totalItems={filteredEvents.length}
+              onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+              onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onPerPageChange={handlePerPageChange}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <EventDetailsSheet
         open={!!selectedEvent}
         onOpenChange={(open) => !open && setSelectedEvent(null)}
-        event={selectedEvent ? { 
-          name: selectedEvent.eventName, 
-          userName: selectedEvent.userName, 
-          userId: "01KD919QKK7PCKVZ9N37D5XX9A", 
-          date: selectedEvent.date, 
-          parameters: [
-            { key: "index", value: String(Math.floor(Math.random() * 200) + 100) },
-            { key: "session_id", value: "01KD919Y" },
-            { key: "version", value: "1.0.4" },
-          ]
-        } : null}
+        event={
+          selectedEvent
+            ? {
+              name: selectedEvent.eventName,
+              userName: selectedEvent.userName,
+              userId: "01KD919QKK7PCKVZ9N37D5XX9A",
+              date: selectedEvent.date,
+              parameters: [
+                { key: "event_type", value: selectedEvent.eventType },
+                { key: "session_id", value: "01KD919Y" },
+                { key: "version", value: "1.0.0" },
+              ],
+            }
+            : null
+        }
       />
     </DashboardLayout>
   );

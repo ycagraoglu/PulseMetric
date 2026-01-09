@@ -7,153 +7,181 @@ namespace Analytics.API.Controllers;
 /// <summary>
 /// İstatistik API'leri.
 /// Dashboard ve analitik sayfaları için veri sağlar.
+/// SRP: HTTP request/response yönetimi - iş mantığı StatsService'de.
 /// </summary>
-[ApiController]
 [Route("api/stats")]
-public class StatsController : ControllerBase
+public class StatsController : ApiBaseController
 {
-    private readonly StatsService _statsService;
-    private readonly ILogger<StatsController> _logger;
+    private readonly IStatsService _statsService;
 
-    public StatsController(StatsService statsService, ILogger<StatsController> logger)
+    public StatsController(IStatsService statsService, ILogger<StatsController> logger)
+        : base(logger)
     {
         _statsService = statsService;
-        _logger = logger;
     }
+
+    #region Overview & Realtime
 
     /// <summary>
     /// Genel istatistik özeti
     /// </summary>
     [HttpGet("overview")]
-    public async Task<ActionResult<StatsOverviewDto>> GetOverview([FromQuery] string tenantId = "DEMO_TENANT")
-    {
-        try
-        {
-            var stats = await _statsService.GetOverviewAsync(tenantId);
-            return Ok(stats);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Overview stats hatası");
-            return StatusCode(500, "İstatistik alınamadı");
-        }
-    }
+    public Task<ActionResult<StatsOverviewDto>> GetOverview([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetOverviewAsync(tenantId),
+            "İstatistik alınamadı");
 
     /// <summary>
     /// Realtime stats
     /// </summary>
     [HttpGet("realtime")]
-    public async Task<ActionResult<RealtimeStatsDto>> GetRealtime([FromQuery] string tenantId = "DEMO_TENANT")
-    {
-        try
-        {
-            var stats = await _statsService.GetRealtimeAsync(tenantId);
-            return Ok(stats);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Realtime stats hatası");
-            return StatusCode(500, "Realtime istatistik alınamadı");
-        }
-    }
+    public Task<ActionResult<RealtimeStatsDto>> GetRealtime([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetRealtimeAsync(tenantId),
+            "Realtime istatistik alınamadı");
+
+    #endregion
+
+    #region Pages & Devices
 
     /// <summary>
     /// En popüler sayfalar
     /// </summary>
     [HttpGet("top-pages")]
-    public async Task<ActionResult<List<TopPageDto>>> GetTopPages(
-        [FromQuery] string tenantId = "DEMO_TENANT",
+    public Task<ActionResult<List<TopPageDto>>> GetTopPages(
+        [FromQuery] string tenantId = DefaultTenantId,
         [FromQuery] int limit = 10)
-    {
-        try
-        {
-            var pages = await _statsService.GetTopPagesAsync(tenantId, limit);
-            return Ok(pages);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Top pages hatası");
-            return StatusCode(500, "Sayfa istatistikleri alınamadı");
-        }
-    }
+        => ExecuteAsync(
+            () => _statsService.GetTopPagesAsync(tenantId, limit),
+            "Sayfa istatistikleri alınamadı");
 
     /// <summary>
     /// Cihaz dağılımı
     /// </summary>
     [HttpGet("devices")]
-    public async Task<ActionResult<List<DeviceStatsDto>>> GetDevices([FromQuery] string tenantId = "DEMO_TENANT")
-    {
-        try
-        {
-            var devices = await _statsService.GetDeviceStatsAsync(tenantId);
-            return Ok(devices);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Device stats hatası");
-            return StatusCode(500, "Cihaz istatistikleri alınamadı");
-        }
-    }
+    public Task<ActionResult<List<DeviceStatsDto>>> GetDevices([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetDeviceStatsAsync(tenantId),
+            "Cihaz istatistikleri alınamadı");
 
     /// <summary>
     /// Zaman bazlı page view chart
     /// </summary>
     [HttpGet("chart/pageviews")]
-    public async Task<ActionResult<List<ChartDataPointDto>>> GetPageViewChart(
-        [FromQuery] string tenantId = "DEMO_TENANT",
+    public Task<ActionResult<List<ChartDataPointDto>>> GetPageViewChart(
+        [FromQuery] string tenantId = DefaultTenantId,
         [FromQuery] int days = 7)
-    {
-        try
-        {
-            var data = await _statsService.GetPageViewChartAsync(tenantId, days);
-            return Ok(data);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Page view chart hatası");
-            return StatusCode(500, "Chart verisi alınamadı");
-        }
-    }
+        => ExecuteAsync(
+            () => _statsService.GetPageViewChartAsync(tenantId, days),
+            "Chart verisi alınamadı");
+
+    #endregion
+
+    #region Events
 
     /// <summary>
     /// Event listesi
     /// </summary>
     [HttpGet("events")]
-    public async Task<ActionResult<List<EventListItemDto>>> GetEvents(
-        [FromQuery] string tenantId = "DEMO_TENANT",
+    public Task<ActionResult<List<EventListItemDto>>> GetEvents(
+        [FromQuery] string tenantId = DefaultTenantId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
-    {
-        try
-        {
-            var events = await _statsService.GetEventsAsync(tenantId, page, pageSize);
-            return Ok(events);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Events hatası");
-            return StatusCode(500, "Event listesi alınamadı");
-        }
-    }
+        => ExecuteAsync(
+            () => _statsService.GetEventsAsync(tenantId, page, pageSize),
+            "Event listesi alınamadı");
+
+    /// <summary>
+    /// Event sayıları (KPI)
+    /// </summary>
+    [HttpGet("events/count")]
+    public Task<ActionResult<EventsCountDto>> GetEventsCount([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetEventsCountAsync(tenantId),
+            "Event sayıları alınamadı");
+
+    /// <summary>
+    /// Event chart verisi
+    /// </summary>
+    [HttpGet("events/chart")]
+    public Task<ActionResult<List<ChartDataPointDto>>> GetEventsChart(
+        [FromQuery] string tenantId = DefaultTenantId,
+        [FromQuery] int days = 7)
+        => ExecuteAsync(
+            () => _statsService.GetEventsChartAsync(tenantId, days),
+            "Event chart verisi alınamadı");
+
+    /// <summary>
+    /// Event aggregations
+    /// </summary>
+    [HttpGet("events/aggregations")]
+    public Task<ActionResult<List<EventAggregationDto>>> GetEventAggregations([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetEventAggregationsAsync(tenantId),
+            "Event aggregations alınamadı");
+
+    #endregion
+
+    #region Users
 
     /// <summary>
     /// User listesi
     /// </summary>
     [HttpGet("users")]
-    public async Task<ActionResult<List<UserListItemDto>>> GetUsers(
-        [FromQuery] string tenantId = "DEMO_TENANT",
+    public Task<ActionResult<List<UserListItemDto>>> GetUsers(
+        [FromQuery] string tenantId = DefaultTenantId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20)
-    {
-        try
-        {
-            var users = await _statsService.GetUsersAsync(tenantId, page, pageSize);
-            return Ok(users);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Users hatası");
-            return StatusCode(500, "User listesi alınamadı");
-        }
-    }
+        => ExecuteAsync(
+            () => _statsService.GetUsersAsync(tenantId, page, pageSize),
+            "User listesi alınamadı");
+
+    /// <summary>
+    /// Kullanıcı sayıları (KPI)
+    /// </summary>
+    [HttpGet("users/count")]
+    public Task<ActionResult<UsersCountDto>> GetUsersCount([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetUsersCountAsync(tenantId),
+            "Kullanıcı sayıları alınamadı");
+
+    /// <summary>
+    /// Platform dağılımı
+    /// </summary>
+    [HttpGet("users/platforms")]
+    public Task<ActionResult<List<PlatformDistributionDto>>> GetPlatformDistribution([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetPlatformDistributionAsync(tenantId),
+            "Platform dağılımı alınamadı");
+
+    /// <summary>
+    /// Coğrafi dağılım (detaylı - ülke + şehir)
+    /// </summary>
+    [HttpGet("users/geo")]
+    public Task<ActionResult<GeoDistributionDto>> GetGeoDistribution([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            () => _statsService.GetGeoDistributionAsync(tenantId),
+            "Coğrafi dağılım alınamadı");
+
+    /// <summary>
+    /// Ülke dağılımı (sadece ülkeler - frontend uyumluluğu için)
+    /// </summary>
+    [HttpGet("countries")]
+    public Task<ActionResult<List<CountryStatsDto>>> GetCountries([FromQuery] string tenantId = DefaultTenantId)
+        => ExecuteAsync(
+            async () => (await _statsService.GetGeoDistributionAsync(tenantId)).Countries,
+            "Ülke dağılımı alınamadı");
+
+    /// <summary>
+    /// Kullanıcı chart verisi
+    /// </summary>
+    [HttpGet("users/chart")]
+    public Task<ActionResult<UsersChartDto>> GetUsersChart(
+        [FromQuery] string tenantId = DefaultTenantId,
+        [FromQuery] int days = 7)
+        => ExecuteAsync(
+            () => _statsService.GetUsersChartAsync(tenantId, days),
+            "Kullanıcı chart verisi alınamadı");
+
+    #endregion
 }

@@ -17,6 +17,11 @@ public class AnalyticsEventPayload
     public string? VisitorId { get; set; }
 
     /// <summary>
+    /// Session kimliği (sessionStorage ile persist edilen).
+    /// </summary>
+    public string? SessionId { get; set; }
+
+    /// <summary>
     /// Event adı (örn: page_view, scroll_depth, time_on_page, outbound_click)
     /// </summary>
     public string EventName { get; set; } = string.Empty;
@@ -86,10 +91,78 @@ public class AnalyticsEventPayload
     /// </summary>
     public long Timestamp { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+    // =============================================
+    // Server-Side Enrichment (Client gönderemez)
+    // =============================================
+
     /// <summary>
-    /// Kullanıcı IP adresi (Sunucu tarafında doldurulur, client gönderemez)
+    /// Kullanıcı IP adresi (Sunucu tarafında doldurulur)
     /// </summary>
     public string? IpAddress { get; set; }
+
+    /// <summary>
+    /// Tarayıcı adı (User-Agent'tan parse edilir)
+    /// </summary>
+    public string? Browser { get; set; }
+
+    /// <summary>
+    /// Tarayıcı versiyonu (User-Agent'tan parse edilir)
+    /// </summary>
+    public string? BrowserVersion { get; set; }
+
+    /// <summary>
+    /// İşletim sistemi (User-Agent'tan parse edilir)
+    /// </summary>
+    public string? OS { get; set; }
+
+    /// <summary>
+    /// İşletim sistemi versiyonu (User-Agent'tan parse edilir)
+    /// </summary>
+    public string? OSVersion { get; set; }
+
+    /// <summary>
+    /// Mobil cihaz mı? (User-Agent'tan parse edilir)
+    /// </summary>
+    public bool? IsMobile { get; set; }
+
+    /// <summary>
+    /// Bot/Crawler mı? (User-Agent'tan parse edilir)
+    /// </summary>
+    public bool? IsBot { get; set; }
+
+    // =============================================
+    // GeoIP Enrichment (IP adresinden tespit edilir)
+    // =============================================
+
+    /// <summary>
+    /// Ülke adı (GeoIP'den tespit edilir)
+    /// </summary>
+    public string? Country { get; set; }
+
+    /// <summary>
+    /// Ülke kodu - ISO 3166-1 alpha-2 (GeoIP'den tespit edilir)
+    /// </summary>
+    public string? CountryCode { get; set; }
+
+    /// <summary>
+    /// Bölge/Eyalet adı (GeoIP'den tespit edilir)
+    /// </summary>
+    public string? Region { get; set; }
+
+    /// <summary>
+    /// Şehir adı (GeoIP'den tespit edilir)
+    /// </summary>
+    public string? City { get; set; }
+
+    /// <summary>
+    /// Enlem (GeoIP'den tespit edilir)
+    /// </summary>
+    public double? Latitude { get; set; }
+
+    /// <summary>
+    /// Boylam (GeoIP'den tespit edilir)
+    /// </summary>
+    public double? Longitude { get; set; }
 }
 
 /// <summary>

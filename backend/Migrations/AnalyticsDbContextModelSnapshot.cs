@@ -22,7 +22,7 @@ namespace Analytics.API.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Analytics.API.Data.Entities.AnalyticsEvent", b =>
+            modelBuilder.Entity("Analytics.API.Models.Entities.AnalyticsEvent", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -125,10 +125,10 @@ namespace Analytics.API.Migrations
                     b.HasIndex("TenantId", "Timestamp")
                         .HasDatabaseName("ix_events_tenant_timestamp");
 
-                    b.ToTable("analytics_events");
+                    b.ToTable("analytics_events", (string)null);
                 });
 
-            modelBuilder.Entity("Analytics.API.Data.Entities.Tenant", b =>
+            modelBuilder.Entity("Analytics.API.Models.Entities.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -173,7 +173,161 @@ namespace Analytics.API.Migrations
                     b.HasIndex("Domain")
                         .HasDatabaseName("ix_tenants_domain");
 
-                    b.ToTable("tenants");
+                    b.ToTable("tenants", (string)null);
+                });
+
+            modelBuilder.Entity("Analytics.API.Models.Entities.TenantSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("DailyDigest")
+                        .HasColumnType("boolean")
+                        .HasColumnName("daily_digest");
+
+                    b.Property<int>("DataRetentionDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("data_retention_days");
+
+                    b.Property<bool>("EmailNotifications")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email_notifications");
+
+                    b.Property<string>("IpWhitelist")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("ip_whitelist");
+
+                    b.Property<string>("ProjectName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("project_name");
+
+                    b.Property<string>("ProjectUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("project_url");
+
+                    b.Property<bool>("PushNotifications")
+                        .HasColumnType("boolean")
+                        .HasColumnName("push_notifications");
+
+                    b.Property<int>("SessionTimeoutMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("session_timeout_minutes");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Timezone")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("timezone");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("two_factor_enabled");
+
+                    b.Property<long?>("UpdatedAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_at");
+
+                    b.Property<bool>("WeeklyReports")
+                        .HasColumnType("boolean")
+                        .HasColumnName("weekly_reports");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("tenant_settings");
+                });
+
+            modelBuilder.Entity("Analytics.API.Models.Entities.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("first_name");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<long?>("LastLoginAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_login_at");
+
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("last_name");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<string>("RefreshToken")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("refresh_token");
+
+                    b.Property<long?>("RefreshTokenExpiresAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("refresh_token_expires_at");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long?>("UpdatedAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_email");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_users_tenant_id");
+
+                    b.ToTable("users", (string)null);
                 });
 #pragma warning restore 612, 618
         }

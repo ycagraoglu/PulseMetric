@@ -1,19 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace Analytics.API.Data.Entities;
+namespace Analytics.API.Models.Entities;
 
 /// <summary>
 /// Tenant (müşteri) entity modeli.
 /// Her müşteri için benzersiz ApiKey ile tanımlanır.
 /// </summary>
 [Table("tenants")]
-public class Tenant
+public class Tenant : BaseEntity, ISoftDeletable, IUpdatable
 {
-    [Key]
-    [Column("id")]
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     /// <summary>
     /// Müşteri/Şirket adı
     /// </summary>
@@ -42,12 +38,6 @@ public class Tenant
     /// </summary>
     [Column("is_active")]
     public bool IsActive { get; set; } = true;
-
-    /// <summary>
-    /// Oluşturulma zamanı (Unix epoch ms)
-    /// </summary>
-    [Column("created_at")]
-    public long CreatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
     /// <summary>
     /// Güncellenme zamanı (Unix epoch ms)

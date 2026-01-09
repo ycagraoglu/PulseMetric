@@ -6,7 +6,7 @@
 | **Versiyon** | 1.0.0 (MVP) |
 | **Durum** | Geliştirme Aşaması |
 | **Platform** | Web (SaaS) |
-| **Teknoloji Stack** | ASP.NET Core 8, React (Vite), Redis, PostgreSQL (TimescaleDB) |
+| **Teknoloji Stack** | ASP.NET Core 10, React (Vite), Redis, PostgreSQL (TimescaleDB) |
 
 ---
 

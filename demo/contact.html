@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PulseMetric Demo - İletişim</title>
+
+    <!-- PulseMetric Script -->
+    <script src="../tracker/pulse.js" data-client-id="demo_tenant_12345" data-debug async>
+    </script>
+
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #262626;
+            --text: #fafafa;
+            --text-muted: #a1a1aa;
+            --primary: #8b5cf6;
+            --primary-hover: #7c3aed;
+            --success: #22c55e;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        nav {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 24px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--text);
+        }
+
+        .page-header {
+            padding: 60px 0;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 16px;
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .contact-section {
+            padding: 80px 0;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+        }
+
+        @media (max-width: 768px) {
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .contact-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s;
+        }
+
+        .info-item:hover {
+            border-color: var(--primary);
+        }
+
+        .info-icon {
+            font-size: 1.5rem;
+        }
+
+        .info-item h3 {
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
+        .info-item p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .contact-form h2 {
+            font-size: 1.5rem;
+            margin-bottom: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 14px 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 150px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            border: none;
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .success-message {
+            display: none;
+            padding: 20px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .success-message h3 {
+            color: var(--success);
+            margin-bottom: 8px;
+        }
+
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">🎯 PulseMetric Demo</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Ana Sayfa</a></li>
+                <li><a href="products.html">Ürünler</a></li>
+                <li><a href="contact.html" class="active">İletişim</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="page-header">
+        <div class="container">
+            <h1>📬 İletişim</h1>
+            <p>Form gönderimi "contact_form_submit" eventi olarak takip edilir. Her alan değişikliği "form_field_focus"
+                olarak izlenir.</p>
+        </div>
+    </section>
+
+    <section class="contact-section">
+        <div class="container">
+            <div class="contact-grid">
+                <!-- Contact Info -->
+                <div class="contact-info">
+                    <h2>Bize Ulaşın</h2>
+
+                    <div class="info-item">
+                        <span class="info-icon">📧</span>
+                        <div>
+                            <h3>E-posta</h3>
+                            <p>demo@pulsemetric.com</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-icon">📱</span>
+                        <div>
+                            <h3>Telefon</h3>
+                            <p>+90 212 123 45 67</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-icon">📍</span>
+                        <div>
+                            <h3>Adres</h3>
+                            <p>Levent, İstanbul, Türkiye</p>
+                        </div>
+                    </div>
+
+                    <div class="info-item">
+                        <span class="info-icon">⏰</span>
+                        <div>
+                            <h3>Çalışma Saatleri</h3>
+                            <p>Hafta içi 09:00 - 18:00</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Form -->
+                <div class="contact-form">
+                    <h2>Mesaj Gönderin</h2>
+
+                    <form id="contactForm">
+                        <div class="form-group">
+                            <label for="name">Ad Soyad</label>
+                            <input type="text" id="name" name="name" required placeholder="Adınızı girin">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">E-posta</label>
+                            <input type="email" id="email" name="email" required placeholder="E-posta adresiniz">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subject">Konu</label>
+                            <input type="text" id="subject" name="subject" required placeholder="Mesaj konusu">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">Mesaj</label>
+                            <textarea id="message" name="message" required placeholder="Mesajınızı yazın..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn" id="submitBtn">
+                            📤 Gönder
+                        </button>
+                    </form>
+
+                    <div class="success-message" id="successMessage">
+                        <h3>✅ Mesajınız Gönderildi!</h3>
+                        <p>En kısa sürede size dönüş yapacağız.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>PulseMetric Demo Site | Form etkileşimleri takip edilmektedir</p>
+        </div>
+    </footer>
+
+    <script>
+        // Track form field focus
+        document.querySelectorAll('#contactForm input, #contactForm textarea').forEach(field => {
+            field.addEventListener('focus', () => {
+                if (window.PulseMetric) {
+                    window.PulseMetric.track('form_field_focus', {
+                        field_name: field.name,
+                        field_type: field.type || 'textarea'
+                    });
+                    console.log('[Demo] form_field_focus:', field.name);
+                }
+            });
+        });
+
+        // Track form submission
+        document.getElementById('contactForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const formData = {
+                name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
+                subject: document.getElementById('subject').value,
+                message_length: document.getElementById('message').value.length
+            };
+
+            if (window.PulseMetric) {
+                window.PulseMetric.track('contact_form_submit', {
+                    has_name: !!formData.name,
+                    has_email: !!formData.email,
+                    subject: formData.subject,
+                    message_length: formData.message_length
+                });
+                console.log('[Demo] contact_form_submit:', formData);
+            }
+
+            // Show success message
+            document.getElementById('contactForm').style.display = 'none';
+            document.getElementById('successMessage').classList.add('show');
+        });
+    </script>
+</body>
+
+</html>

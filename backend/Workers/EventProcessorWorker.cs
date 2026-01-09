@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Analytics.API.Data;
-using Analytics.API.Data.Entities;
+using Analytics.API.Models.Entities;
 using Analytics.API.Models;
 using StackExchange.Redis;
 

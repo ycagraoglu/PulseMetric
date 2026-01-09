@@ -1,4 +1,5 @@
-using Analytics.API.Data.Entities;
+using Analytics.API.Data.Configurations;
+using Analytics.API.Models.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Analytics.API.Data;
@@ -14,6 +15,8 @@ public class AnalyticsDbContext : DbContext
     {
     }
 
+    #region DbSets
+
     /// <summary>
     /// Analitik eventler tablosu
     /// </summary>
@@ -24,41 +27,58 @@ public class AnalyticsDbContext : DbContext
     /// </summary>
     public DbSet<Tenant> Tenants => Set<Tenant>();
 
+    /// <summary>
+    /// Kullanıcılar tablosu (Authentication)
+    /// </summary>
+    public DbSet<User> Users => Set<User>();
+
+    /// <summary>
+    /// Tenant ayarları tablosu
+    /// </summary>
+    public DbSet<TenantSettings> TenantSettings => Set<TenantSettings>();
+
+    /// <summary>
+    /// API Keys tablosu
+    /// </summary>
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+
+    #endregion
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // AnalyticsEvent indeksleri
-        modelBuilder.Entity<AnalyticsEvent>(entity =>
+        // Entity configurations uygula
+        modelBuilder.ApplyConfiguration(new AnalyticsEventConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantConfiguration());
+        modelBuilder.ApplyConfiguration(new UserConfiguration());
+    }
+
+    /// <summary>
+    /// SaveChanges öncesi otomatik UpdatedAt güncellemesi
+    /// </summary>
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateTimestamps();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        UpdateTimestamps();
+        return base.SaveChanges();
+    }
+
+    private void UpdateTimestamps()
+    {
+        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        foreach (var entry in ChangeTracker.Entries<IUpdatable>())
         {
-            // Tenant + Timestamp composite index (en sık kullanılan sorgu)
-            entity.HasIndex(e => new { e.TenantId, e.Timestamp })
-                  .HasDatabaseName("ix_events_tenant_timestamp");
-
-            // Event name index (event tipi bazlı sorgular)
-            entity.HasIndex(e => e.EventName)
-                  .HasDatabaseName("ix_events_event_name");
-
-            // Visitor index (kullanıcı bazlı sorgular)
-            entity.HasIndex(e => e.VisitorId)
-                  .HasDatabaseName("ix_events_visitor_id");
-
-            // Timestamp index (zaman bazlı sorgular)
-            entity.HasIndex(e => e.Timestamp)
-                  .HasDatabaseName("ix_events_timestamp");
-        });
-
-        // Tenant indeksleri
-        modelBuilder.Entity<Tenant>(entity =>
-        {
-            // ApiKey unique index
-            entity.HasIndex(e => e.ApiKey)
-                  .IsUnique()
-                  .HasDatabaseName("ix_tenants_api_key");
-
-            // Domain index
-            entity.HasIndex(e => e.Domain)
-                  .HasDatabaseName("ix_tenants_domain");
-        });
+            if (entry.State == EntityState.Modified)
+            {
+                entry.Entity.UpdatedAt = now;
+            }
+        }
     }
 }

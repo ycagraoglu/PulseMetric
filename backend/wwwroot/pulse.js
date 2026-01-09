@@ -1,71 +1,336 @@
 /**
- * PulseMetric Analytics Tracker v2.0
- * Gelişmiş analitik scripti - Privacy-First, Cookie-less
+ * PulseMetric Analytics Tracker v3.0
+ * Enterprise-Grade Analytics Script - Privacy-First, Cookie-less
  * 
- * Özellikler:
- * - Page View & SPA Tracking
- * - Scroll Depth (25%, 50%, 75%, 100%)
- * - Time on Page
- * - Bounce Detection
- * - UTM Parameter Parsing
- * - Outbound Link Tracking
- * - Unique Visitor Hash (Cookie-less)
- * - Performance Metrics
+ * Security Features:
+ * - Client ID Validation
+ * - XSS Input Sanitization
+ * - URL Protocol Validation
+ * - CSP Compatible (no unsafe-inline)
  * 
- * Kullanım:
- * <script src="https://api.pulsemetric.com/pulse.js" data-client-id="TENANT_ID"></script>
+ * Performance Features:
+ * - Event Batching (10 events = 1 request)
+ * - Session Persistence (sessionStorage)
+ * - Retry with Exponential Backoff
+ * - SendBeacon API
+ * 
+ * Usage:
+ * <script src="https://api.pulsemetric.com/pulse.js" data-client-id="TENANT_ID" async></script>
+ * 
+ * Debug Mode:
+ * <script src="..." data-client-id="TENANT_ID" data-debug></script>
  */
 (function (window, document) {
     'use strict';
 
-    // --- YAPILANDIRMA ---
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+
     var scriptTag = document.currentScript || document.querySelector('script[data-client-id]');
-    var BACKEND_URL = scriptTag ? scriptTag.src.substring(0, scriptTag.src.lastIndexOf('/')) : '';
+    if (!scriptTag) return;
+
+    var BACKEND_URL = scriptTag.src.substring(0, scriptTag.src.lastIndexOf('/'));
     var API_URL = BACKEND_URL + '/api/collector';
+    var BATCH_URL = API_URL + '/batch';
+    var clientId = scriptTag.getAttribute('data-client-id');
+    var DEBUG = scriptTag.hasAttribute('data-debug');
 
-    var clientId = scriptTag ? scriptTag.getAttribute('data-client-id') : null;
+    // ============================================
+    // CONSTANTS
+    // ============================================
 
-    if (!clientId) {
-        console.error('PulseMetric: data-client-id bulunamadı!');
+    var VERSION = '3.0.0';
+    var BATCH_SIZE = 10;
+    var FLUSH_INTERVAL = 5000;
+    var MAX_RETRIES = 3;
+    var SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+    var SESSION_KEY = 'pm_sid';
+    var MAX_URL_LENGTH = 2000;
+    var MAX_TITLE_LENGTH = 200;
+    var MAX_TEXT_LENGTH = 100;
+
+    // ============================================
+    // DEBUG LOGGING
+    // ============================================
+
+    function log() {
+        if (DEBUG && console && console.log) {
+            var args = ['[PulseMetric]'].concat(Array.prototype.slice.call(arguments));
+            console.log.apply(console, args);
+        }
+    }
+
+    function warn() {
+        if (DEBUG && console && console.warn) {
+            var args = ['[PulseMetric]'].concat(Array.prototype.slice.call(arguments));
+            console.warn.apply(console, args);
+        }
+    }
+
+    // ============================================
+    // SECURITY: VALIDATION & SANITIZATION
+    // ============================================
+
+    /**
+     * Validate client ID format
+     * Accepts: ULID, UUID, alphanumeric with dash/underscore
+     */
+    function isValidClientId(id) {
+        return typeof id === 'string' &&
+            id.length >= 8 &&
+            id.length <= 64 &&
+            /^[a-zA-Z0-9\-_]+$/.test(id);
+    }
+
+    /**
+     * Sanitize string input - XSS Prevention
+     */
+    function sanitize(str, maxLen) {
+        if (typeof str !== 'string') return '';
+        return str
+            .replace(/[<>'"&\\]/g, '')
+            .replace(/javascript:/gi, '')
+            .replace(/data:/gi, '')
+            .replace(/vbscript:/gi, '')
+            .substring(0, maxLen || 500);
+    }
+
+    /**
+     * Validate and sanitize URL - only http/https
+     */
+    function sanitizeUrl(url) {
+        if (typeof url !== 'string') return '';
+        try {
+            var parsed = new URL(url, window.location.origin);
+            if (!/^https?:$/.test(parsed.protocol)) return '';
+            return sanitize(parsed.href, MAX_URL_LENGTH);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    // ============================================
+    // CLIENT ID VALIDATION
+    // ============================================
+
+    if (!clientId || !isValidClientId(clientId)) {
+        warn('Invalid or missing data-client-id');
         return;
     }
 
-    console.log('PulseMetric v2.0: Başlatıldı (Tenant: ' + clientId + ')');
+    log('v' + VERSION + ' initialized (Tenant: ' + clientId + ')');
 
-    // --- STATE YÖNETİMİ ---
+    // ============================================
+    // FNV-1a HASH (Better Distribution)
+    // ============================================
+
+    function fnv1aHash(str) {
+        var hash = 2166136261; // FNV offset basis
+        for (var i = 0; i < str.length; i++) {
+            hash ^= str.charCodeAt(i);
+            // FNV prime: 16777619
+            hash += (hash << 1) + (hash << 4) + (hash << 7) +
+                (hash << 8) + (hash << 24);
+        }
+        return (hash >>> 0).toString(36);
+    }
+
+    /**
+     * Generate unique visitor ID (cookie-less, GDPR friendly)
+     */
+    function generateVisitorId() {
+        var components = [
+            navigator.userAgent || '',
+            navigator.language || '',
+            screen.width + 'x' + screen.height + 'x' + (screen.colorDepth || 24),
+            new Date().getTimezoneOffset(),
+            navigator.hardwareConcurrency || 0,
+            navigator.maxTouchPoints || 0,
+            navigator.platform || ''
+        ];
+        return 'v_' + fnv1aHash(components.join('|'));
+    }
+
+    // ============================================
+    // SESSION MANAGEMENT (sessionStorage)
+    // ============================================
+
+    function getSessionId() {
+        try {
+            var stored = sessionStorage.getItem(SESSION_KEY);
+            if (stored) {
+                var data = JSON.parse(stored);
+                if (Date.now() - data.ts < SESSION_TIMEOUT) {
+                    data.ts = Date.now();
+                    sessionStorage.setItem(SESSION_KEY, JSON.stringify(data));
+                    return data.id;
+                }
+            }
+        } catch (e) { }
+
+        // New session
+        var newId = 'ses_' + Date.now().toString(36) +
+            Math.random().toString(36).substr(2, 9);
+        try {
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+                id: newId,
+                ts: Date.now()
+            }));
+        } catch (e) { }
+        return newId;
+    }
+
+    // ============================================
+    // STATE MANAGEMENT
+    // ============================================
+
     var state = {
+        sessionId: getSessionId(),
+        visitorId: generateVisitorId(),
         sessionStart: Date.now(),
         pageStart: Date.now(),
         pageViews: 0,
         scrollMilestones: { 25: false, 50: false, 75: false, 100: false },
         lastUrl: window.location.href,
-        visitorId: null
+        consentGranted: true // Default: granted
     };
 
-    // --- UNIQUE VISITOR HASH (Cookie-less, GDPR Uyumlu) ---
-    function generateVisitorHash() {
-        var components = [
-            navigator.userAgent,
-            navigator.language,
-            screen.width + 'x' + screen.height,
-            new Date().getTimezoneOffset(),
-            navigator.hardwareConcurrency || 'unknown',
-            navigator.platform || 'unknown'
-        ];
+    // ============================================
+    // EVENT QUEUE & BATCHING
+    // ============================================
 
-        var str = components.join('|');
-        var hash = 0;
-        for (var i = 0; i < str.length; i++) {
-            var char = str.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // 32bit integer
-        }
-        return 'v_' + Math.abs(hash).toString(36);
+    var eventQueue = [];
+    var flushTimer = null;
+
+    function buildPayload(eventName, data) {
+        return {
+            eventName: sanitize(eventName || 'page_view', 50),
+            url: sanitizeUrl(window.location.href),
+            pageTitle: sanitize(document.title, MAX_TITLE_LENGTH),
+            referrer: sanitizeUrl(document.referrer),
+            device: getDeviceType(),
+            screenWidth: window.innerWidth || screen.width,
+            screenHeight: window.innerHeight || screen.height,
+            language: sanitize(navigator.language || '', 10),
+            timezone: sanitize(Intl.DateTimeFormat().resolvedOptions().timeZone || '', 50),
+            timestamp: Date.now(),
+            sessionDuration: Math.round((Date.now() - state.sessionStart) / 1000),
+            data: data || {}
+        };
     }
 
-    state.visitorId = generateVisitorHash();
+    function queueEvent(eventName, data) {
+        if (!state.consentGranted) {
+            log('Event blocked: consent not granted');
+            return;
+        }
 
-    // --- CİHAZ TESPİTİ ---
+        var payload = buildPayload(eventName, data);
+        eventQueue.push(payload);
+        log('Event queued:', eventName, '(' + eventQueue.length + '/' + BATCH_SIZE + ')');
+
+        if (eventQueue.length >= BATCH_SIZE) {
+            flushNow();
+        } else if (!flushTimer) {
+            flushTimer = setTimeout(flushNow, FLUSH_INTERVAL);
+        }
+    }
+
+    function flushNow() {
+        if (eventQueue.length === 0) return;
+
+        var batch = eventQueue.splice(0, BATCH_SIZE);
+        sendBatch(batch);
+
+        if (flushTimer) {
+            clearTimeout(flushTimer);
+            flushTimer = null;
+        }
+
+        // If there are remaining events, schedule another flush
+        if (eventQueue.length > 0) {
+            flushTimer = setTimeout(flushNow, FLUSH_INTERVAL);
+        }
+    }
+
+    // ============================================
+    // NETWORK: SEND WITH RETRY
+    // ============================================
+
+    function sendBatch(events) {
+        var payload = {
+            clientId: clientId,
+            visitorId: state.visitorId,
+            sessionId: state.sessionId,
+            events: events
+        };
+
+        log('Sending batch:', events.length, 'events');
+
+        if (navigator.sendBeacon) {
+            var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+            var success = navigator.sendBeacon(BATCH_URL, blob);
+            if (!success) {
+                sendWithRetry(payload, BATCH_URL, MAX_RETRIES);
+            }
+        } else {
+            sendWithRetry(payload, BATCH_URL, MAX_RETRIES);
+        }
+    }
+
+    function sendSingle(payload) {
+        var singlePayload = {
+            clientId: clientId,
+            visitorId: state.visitorId,
+            sessionId: state.sessionId,
+            eventName: payload.eventName,
+            url: payload.url,
+            pageTitle: payload.pageTitle,
+            referrer: payload.referrer,
+            device: payload.device,
+            screenWidth: payload.screenWidth,
+            screenHeight: payload.screenHeight,
+            language: payload.language,
+            timezone: payload.timezone,
+            userAgent: navigator.userAgent,
+            timestamp: payload.timestamp,
+            sessionDuration: payload.sessionDuration,
+            utm: getUtmParams(),
+            data: payload.data
+        };
+
+        if (navigator.sendBeacon) {
+            var blob = new Blob([JSON.stringify(singlePayload)], { type: 'application/json' });
+            navigator.sendBeacon(API_URL, blob);
+        } else {
+            sendWithRetry(singlePayload, API_URL, MAX_RETRIES);
+        }
+    }
+
+    function sendWithRetry(payload, url, retries) {
+        fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true
+        }).catch(function (err) {
+            if (retries > 0) {
+                var delay = Math.pow(2, MAX_RETRIES - retries + 1) * 1000;
+                log('Retry in', delay, 'ms (', retries - 1, 'left)');
+                setTimeout(function () {
+                    sendWithRetry(payload, url, retries - 1);
+                }, delay);
+            } else {
+                warn('Failed to send after retries');
+            }
+        });
+    }
+
+    // ============================================
+    // DEVICE DETECTION
+    // ============================================
+
     function getDeviceType() {
         var ua = navigator.userAgent;
         if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
@@ -77,68 +342,39 @@
         return 'Desktop';
     }
 
-    // --- UTM PARAMETER PARSING ---
+    // ============================================
+    // UTM PARAMETER PARSING
+    // ============================================
+
     function getUtmParams() {
-        var params = new URLSearchParams(window.location.search);
-        var utm = {};
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (key) {
-            var value = params.get(key);
-            if (value) {
-                utm[key.replace('utm_', '')] = value;
-            }
-        });
-        return Object.keys(utm).length > 0 ? utm : null;
-    }
-
-    // --- ANA FONKSİYON: Event Gönderimi ---
-    function sendEvent(eventName, data) {
-        var payload = {
-            clientId: clientId,
-            visitorId: state.visitorId,
-            eventName: eventName || 'page_view',
-            url: window.location.href,
-            pageTitle: document.title || '',
-            referrer: document.referrer,
-            device: getDeviceType(),
-            screenWidth: window.innerWidth || screen.width,
-            screenHeight: window.innerHeight || screen.height,
-            language: navigator.language || navigator.userLanguage || '',
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-            userAgent: navigator.userAgent,
-            timestamp: Date.now(),
-            sessionDuration: Math.round((Date.now() - state.sessionStart) / 1000),
-            utm: getUtmParams(),
-            data: data || {}
-        };
-
-        // Navigator.sendBeacon: Sayfa kapanırken bile veri gönderir
-        if (navigator.sendBeacon) {
-            var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-            navigator.sendBeacon(API_URL, blob);
-        } else {
-            // Fallback: fetch API
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify(payload),
-                headers: { 'Content-Type': 'application/json' },
-                keepalive: true,
-                credentials: 'include'
-            }).catch(function (err) {
-                console.warn('PulseMetric: Event gönderilemedi', err);
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var utm = {};
+            ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'].forEach(function (key) {
+                var value = params.get(key);
+                if (value) {
+                    utm[key.replace('utm_', '')] = sanitize(value, 100);
+                }
             });
+            return Object.keys(utm).length > 0 ? utm : null;
+        } catch (e) {
+            return null;
         }
     }
 
-    // --- SCROLL DEPTH TRACKING ---
+    // ============================================
+    // SCROLL DEPTH TRACKING
+    // ============================================
+
     function getScrollPercentage() {
         var docHeight = Math.max(
-            document.body.scrollHeight,
-            document.documentElement.scrollHeight,
-            document.body.offsetHeight,
-            document.documentElement.offsetHeight
+            document.body.scrollHeight || 0,
+            document.documentElement.scrollHeight || 0,
+            document.body.offsetHeight || 0,
+            document.documentElement.offsetHeight || 0
         );
-        var winHeight = window.innerHeight;
-        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var winHeight = window.innerHeight || 0;
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
 
         if (docHeight <= winHeight) return 100;
         return Math.round((scrollTop / (docHeight - winHeight)) * 100);
@@ -151,7 +387,7 @@
         milestones.forEach(function (milestone) {
             if (percentage >= milestone && !state.scrollMilestones[milestone]) {
                 state.scrollMilestones[milestone] = true;
-                sendEvent('scroll_depth', { depth: milestone });
+                queueEvent('scroll_depth', { depth: milestone });
             }
         });
     }
@@ -166,27 +402,34 @@
         }, 200);
     }, { passive: true });
 
-    // --- TIME ON PAGE TRACKING ---
+    // ============================================
+    // TIME ON PAGE TRACKING
+    // ============================================
+
     function sendTimeOnPage() {
         var timeSpent = Math.round((Date.now() - state.pageStart) / 1000);
         if (timeSpent > 0) {
-            sendEvent('time_on_page', { seconds: timeSpent });
+            // Time on page needs immediate send (page closing)
+            sendSingle(buildPayload('time_on_page', { seconds: timeSpent }));
         }
     }
 
-    // Sayfa kapanırken time on page gönder
     window.addEventListener('beforeunload', function () {
+        flushNow(); // Flush remaining events
         sendTimeOnPage();
     });
 
-    // Visibility değiştiğinde de gönder (tab switch)
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'hidden') {
+            flushNow();
             sendTimeOnPage();
         }
     });
 
-    // --- OUTBOUND LINK TRACKING ---
+    // ============================================
+    // OUTBOUND LINK TRACKING
+    // ============================================
+
     function isOutboundLink(url) {
         try {
             var link = new URL(url, window.location.origin);
@@ -197,45 +440,55 @@
     }
 
     document.addEventListener('click', function (e) {
-        var target = e.target.closest('a');
+        var target = e.target.closest ? e.target.closest('a') : null;
         if (target && target.href && isOutboundLink(target.href)) {
-            sendEvent('outbound_click', {
-                url: target.href,
-                text: target.innerText?.substring(0, 100) || ''
+            queueEvent('outbound_click', {
+                url: sanitizeUrl(target.href),
+                text: sanitize(target.innerText || '', MAX_TEXT_LENGTH)
             });
         }
     }, true);
 
-    // --- SPA DESTEĞİ (React, Next.js, Vue vb.) ---
+    // ============================================
+    // SPA SUPPORT (React, Next.js, Vue, etc.)
+    // ============================================
+
     function onPageChange() {
-        // Önceki sayfa için time on page gönder
+        if (window.location.href === state.lastUrl) return;
+
+        // Send time on page for previous page
         sendTimeOnPage();
 
-        // State'i resetle
+        // Reset state
         state.pageStart = Date.now();
         state.pageViews++;
         state.scrollMilestones = { 25: false, 50: false, 75: false, 100: false };
         state.lastUrl = window.location.href;
 
-        // Yeni sayfa görüntüleme
-        sendEvent('page_view');
+        // New page view
+        queueEvent('page_view');
     }
 
     var originalPushState = history.pushState;
     history.pushState = function () {
         originalPushState.apply(this, arguments);
-        onPageChange();
+        setTimeout(onPageChange, 0);
     };
 
     var originalReplaceState = history.replaceState;
     history.replaceState = function () {
         originalReplaceState.apply(this, arguments);
-        onPageChange();
+        setTimeout(onPageChange, 0);
     };
 
-    window.addEventListener('popstate', onPageChange);
+    window.addEventListener('popstate', function () {
+        setTimeout(onPageChange, 0);
+    });
 
-    // --- SAYFA PERFORMANS METRİKLERİ ---
+    // ============================================
+    // PERFORMANCE METRICS
+    // ============================================
+
     function getPerformanceMetrics() {
         if (window.performance && window.performance.getEntriesByType) {
             var navEntries = window.performance.getEntriesByType('navigation');
@@ -254,45 +507,113 @@
         return null;
     }
 
-    // --- BOUNCE DETECTION ---
-    // Bounce = Tek sayfa görüntüleyip 30 saniye içinde çıkan
+    // ============================================
+    // ERROR TRACKING
+    // ============================================
+
+    window.addEventListener('error', function (e) {
+        queueEvent('js_error', {
+            msg: sanitize(e.message || '', 200),
+            file: sanitize(e.filename || '', 100),
+            line: e.lineno || 0,
+            col: e.colno || 0
+        });
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+        queueEvent('promise_error', {
+            msg: sanitize(String(e.reason || ''), 200)
+        });
+    });
+
+    // ============================================
+    // BOUNCE DETECTION (30s engagement)
+    // ============================================
+
     var engagementTimer = setTimeout(function () {
-        sendEvent('engaged', { afterSeconds: 30 });
+        queueEvent('engaged', { afterSeconds: 30 });
     }, 30000);
 
-    // --- OTOMATİK EVENTLER ---
-    // Session başlangıcı
-    sendEvent('session_start', {
+    // ============================================
+    // AUTOMATIC EVENTS
+    // ============================================
+
+    // Session start
+    queueEvent('session_start', {
         visitorId: state.visitorId,
+        sessionId: state.sessionId,
         utm: getUtmParams()
     });
 
-    // İlk sayfa görüntüleme
+    // First page view
     state.pageViews++;
-    sendEvent('page_view');
+    queueEvent('page_view');
 
-    // Sayfa yüklendiğinde performans metrikleri gönder
+    // Performance metrics (after page load)
     window.addEventListener('load', function () {
         setTimeout(function () {
             var metrics = getPerformanceMetrics();
             if (metrics) {
-                sendEvent('performance', metrics);
+                queueEvent('performance', metrics);
             }
         }, 100);
     });
 
-    // --- PUBLIC API ---
+    // ============================================
+    // PUBLIC API
+    // ============================================
+
     window.PulseMetric = {
-        track: sendEvent,
-        identify: function (userId, traits) {
-            sendEvent('identify', { userId: userId, traits: traits || {} });
+        version: VERSION,
+
+        // Track custom event
+        track: function (eventName, data) {
+            queueEvent(sanitize(eventName, 50), data);
         },
+
+        // Identify user
+        identify: function (userId, traits) {
+            queueEvent('identify', {
+                userId: sanitize(String(userId), 100),
+                traits: traits || {}
+            });
+        },
+
+        // Get visitor ID
         getVisitorId: function () {
             return state.visitorId;
         },
+
+        // Get session ID
+        getSessionId: function () {
+            return state.sessionId;
+        },
+
+        // Get session duration
         getSessionDuration: function () {
             return Math.round((Date.now() - state.sessionStart) / 1000);
+        },
+
+        // Consent management
+        consent: function (granted) {
+            state.consentGranted = !!granted;
+            log('Consent:', granted ? 'granted' : 'denied');
+        },
+
+        // Force flush events
+        flush: function () {
+            flushNow();
+        },
+
+        // Debug mode
+        debug: function (enable) {
+            if (typeof enable === 'boolean') {
+                DEBUG = enable;
+            }
+            return DEBUG;
         }
     };
+
+    log('Ready');
 
 })(window, document);

@@ -1,7 +1,20 @@
 using System.Text.Json;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace Analytics.API.Services;
+
+/// <summary>
+/// Redis bağlantı ayarları
+/// </summary>
+public class RedisSettings
+{
+    public const string SectionName = "Redis";
+    
+    public string ConnectionString { get; set; } = "localhost:6379";
+    public int ConnectTimeoutMs { get; set; } = 5000;
+    public int SyncTimeoutMs { get; set; } = 3000;
+}
 
 /// <summary>
 /// Redis kullanarak fail-safe kuyruk servisi.
@@ -15,59 +28,71 @@ public class RedisQueueService : IQueueService
     public RedisQueueService(ILogger<RedisQueueService> logger, IConfiguration configuration)
     {
         _logger = logger;
-
+        
         var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
-
-        try
-        {
-            var options = ConfigurationOptions.Parse(connectionString);
-            options.AbortOnConnectFail = false; // Kritik: Bağlantı başarısız olsa da başlat
-            options.ConnectTimeout = 5000;
-            options.SyncTimeout = 3000;
-
-            _redis = ConnectionMultiplexer.Connect(options);
-            
-            _logger.LogInformation("🔌 Redis bağlantısı başlatılıyor: {ConnectionString}", connectionString);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ Redis bağlantı hatası, Mock modda devam ediliyor");
-            _redis = null;
-        }
+        _redis = TryConnect(connectionString);
     }
 
     public async Task EnqueueAsync(string streamName, object data)
     {
         var jsonData = JsonSerializer.Serialize(data);
 
-        // Dinamik bağlantı kontrolü - her istekte kontrol et
-        if (_redis != null && _redis.IsConnected)
+        if (!IsConnected())
         {
-            try
-            {
-                var db = _redis.GetDatabase();
-                
-                // Redis List: Basit ve uyumlu kuyruk yapısı
-                // RPUSH ile sağa ekle, LPOP ile soldan al (FIFO)
-                await db.ListRightPushAsync(streamName, jsonData);
-
-                _logger.LogInformation("✅ [REDIS] Queue: {StreamName} | Veri eklendi", streamName);
-            }
-            catch (RedisConnectionException ex)
-            {
-                // Fail-safe: API çökmemeli!
-                _logger.LogError(ex, "Redis bağlantısı koptu, event kaybedildi: {StreamName}", streamName);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Redis yazma hatası: {StreamName}", streamName);
-            }
+            LogMockMode(streamName, jsonData.Length);
+            return;
         }
-        else
+
+        try
         {
-            // Mock mod: Redis yoksa sadece logla
-            _logger.LogWarning("⚠️ [MOCK-QUEUE] Redis bağlı değil | Stream: {StreamName} | Size: {Size} bytes", 
-                streamName, jsonData.Length);
+            await EnqueueToRedisAsync(streamName, jsonData);
+        }
+        catch (RedisConnectionException ex)
+        {
+            _logger.LogError(ex, "Redis bağlantısı koptu, event kaybedildi: {StreamName}", streamName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Redis yazma hatası: {StreamName}", streamName);
         }
     }
+
+    #region Private Methods
+
+    private IConnectionMultiplexer? TryConnect(string connectionString)
+    {
+        try
+        {
+            var options = ConfigurationOptions.Parse(connectionString);
+            options.AbortOnConnectFail = false;
+            options.ConnectTimeout = 5000;
+            options.SyncTimeout = 3000;
+
+            var redis = ConnectionMultiplexer.Connect(options);
+            _logger.LogInformation("🔌 Redis bağlantısı başlatılıyor: {ConnectionString}", connectionString);
+            return redis;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Redis bağlantı hatası, Mock modda devam ediliyor");
+            return null;
+        }
+    }
+
+    private bool IsConnected() => _redis is { IsConnected: true };
+
+    private async Task EnqueueToRedisAsync(string streamName, string jsonData)
+    {
+        var db = _redis!.GetDatabase();
+        await db.ListRightPushAsync(streamName, jsonData);
+        _logger.LogInformation("✅ [REDIS] Queue: {StreamName} | Veri eklendi", streamName);
+    }
+
+    private void LogMockMode(string streamName, int size)
+    {
+        _logger.LogWarning("⚠️ [MOCK-QUEUE] Redis bağlı değil | Stream: {StreamName} | Size: {Size} bytes",
+            streamName, size);
+    }
+
+    #endregion
 }

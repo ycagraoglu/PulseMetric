@@ -78,3 +78,80 @@ public record UserListItemDto(
     string? OS,
     long LastSeen
 );
+
+/// <summary>
+/// Kullanıcı sayıları (KPI)
+/// </summary>
+public record UsersCountDto(
+    int Total,
+    int DailyActive,
+    int Online,
+    double ChangePercent
+);
+
+/// <summary>
+/// Platform dağılımı
+/// </summary>
+public record PlatformDistributionDto(
+    string Name,
+    string Icon,
+    int Count,
+    double Percentage
+);
+
+/// <summary>
+/// Coğrafi dağılım
+/// </summary>
+public record GeoDistributionDto(
+    List<CountryStatsDto> Countries,
+    List<CityStatsDto> Cities
+);
+
+/// <summary>
+/// Ülke istatistiği
+/// </summary>
+public record CountryStatsDto(
+    string Name,
+    string CountryCode,
+    int Count,
+    double Percentage
+);
+
+/// <summary>
+/// Şehir istatistiği
+/// </summary>
+public record CityStatsDto(
+    string Name,
+    string Country,
+    string CountryCode,
+    int Count,
+    double Percentage
+);
+
+/// <summary>
+/// Kullanıcı chart verisi
+/// </summary>
+public record UsersChartDto(
+    List<ChartDataPointDto> TotalUsers,
+    List<ChartDataPointDto> DailyActive
+);
+
+/// <summary>
+/// Event sayıları (KPI)
+/// </summary>
+public record EventsCountDto(
+    int Total,
+    int TodayCount,
+    int UniqueEventTypes,
+    double AvgPerSession
+);
+
+/// <summary>
+/// Event aggregation
+/// </summary>
+public record EventAggregationDto(
+    string EventName,
+    int Count,
+    int UniqueUsers
+);
+
